@@ -102,7 +102,7 @@ function doPost(e) {
 
 // ===================== GEMINI AI FUNCTION =====================
 function chatWithGemini(userMessage) {
-  const API_KEY = "AIzaSyCUeQYZMC3uiq2h6hZyJ2QVjtI-NLXMp4A";
+  const API_KEY = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
   const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + API_KEY;
 
   const payload = {
