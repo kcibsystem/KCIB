@@ -180,9 +180,10 @@ window.App = {
   _roleLabel(role) {
     const map = {
       ADVISORS:        'อาจารย์ที่ปรึกษา',
+      HEAD_DEPT:       'หัวหน้าภาควิชา',
       STAFF_FLOOR_1:   'เจ้าหน้าที่ห้องปฏิบัติการชั้น 1',
       STAFF_PROJECT_2: 'เจ้าหน้าที่ TEAM PROJECT 2',
-      VIEWERS:         'ผู้ดูแลระบบ',
+      VIEWERS:         'ผู้ดูแลระบบ (Viewer)',
       STUDENT:         'นักศึกษา'
     };
     return map[role] || role;
@@ -190,6 +191,7 @@ window.App = {
 
   _isStaff() {
     const r = this.state.user?.role;
+    // VIEWERS ดูได้อย่างเดียว ถือเป็น staff ได้ (เข้า dashboard ได้) แต่ไม่มีปุ่มอนุมัติ
     return r && r !== 'STUDENT';
   },
 
@@ -1587,8 +1589,8 @@ window.App = {
     if (role === 'ADVISORS' && status === STATUS_P1) {
       return (b.AdvisorEmail || '').toLowerCase().trim() === u.email;
     }
-    // Step 2: หัวหน้าภาค (VIEWERS) อนุมัติทุกรายการ
-    if (role === 'VIEWERS' && status === STATUS_P2) {
+    // Step 2: หัวหน้าภาค (HEAD_DEPT) อนุมัติทุกรายการ
+    if (role === 'HEAD_DEPT' && status === STATUS_P2) {
       return true;
     }
     // Step 3: เจ้าหน้าที่ — แยกตาม Team Project 2 หรือรายการปกติ
@@ -1596,6 +1598,7 @@ window.App = {
       if (/team.?project.?2/.test(course)) return role === 'STAFF_PROJECT_2';
       return role === 'STAFF_FLOOR_1';
     }
+    // VIEWERS: ดูได้อย่างเดียว ไม่มีสิทธิ์อนุมัติ
     return false;
   },
 
