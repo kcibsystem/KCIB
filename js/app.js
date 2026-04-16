@@ -825,31 +825,33 @@ window.App = {
   },
 
   /* ================================================== MY BOOKINGS */
+  _myBookingsFilter: 'all',
+
   async _renderMyBookings() {
     const el = document.getElementById('page-my-bookings');
     const u  = this.state.user;
 
     if (!u) {
       el.innerHTML = `
-        <div class="my-bookings-page">
-          <div class="empty-state">
-            <div class="empty-icon">🔑</div>
-            <div class="empty-title">กรุณาเข้าสู่ระบบก่อน</div>
-            <div class="empty-desc">เข้าสู่ระบบด้วยบัญชี Google ของสถาบัน</div>
+        <div style="max-width:700px;margin:0 auto;padding:60px 20px;">
+          <div class="bk-empty">
+            <div class="bk-empty-icon">🔑</div>
+            <div class="bk-empty-title">กรุณาเข้าสู่ระบบก่อน</div>
+            <div class="bk-empty-desc">เข้าสู่ระบบด้วยบัญชี Google ของสถาบัน</div>
           </div>
         </div>`;
       return;
     }
 
+    this._myBookingsFilter = 'all';
     el.innerHTML = `
-      <div class="my-bookings-page">
-        <div class="page-header-row">
-          <h1 class="page-h1">การจอง<span>ของฉัน</span></h1>
+      <div class="bk-page">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+          <h1 style="font-size:22px;font-weight:800;">📋 การจองของฉัน</h1>
           <button class="btn btn-secondary btn-sm" onclick="App._refreshMyBookings()">↻ รีเฟรช</button>
         </div>
-        <div id="bookings-list">
-          ${this._skeletonBookings(3)}
-        </div>
+        <div id="bk-filter-bar" class="bk-filter-bar"></div>
+        <div id="bookings-list">${this._skeletonBookings(3)}</div>
       </div>`;
 
     await this._fetchAndRenderMyBookings();
@@ -867,69 +869,138 @@ window.App = {
     if (!u) return;
     const listEl = document.getElementById('bookings-list');
     if (!listEl) return;
-
     try {
       if (this.state.bookings.length === 0) {
         this.state.bookings = await apiGet('getMyBookings', { email: u.email });
       }
-      this._renderBookingsList(listEl, this.state.bookings);
+      this._renderBookingsList();
     } catch (e) {
-      listEl.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">โหลดไม่สำเร็จ</div><div class="empty-desc">${e.message}</div></div>`;
+      listEl.innerHTML = `<div class="bk-empty"><div class="bk-empty-icon">⚠️</div><div class="bk-empty-title">โหลดไม่สำเร็จ</div><div class="bk-empty-desc">${escHtml(e.message)}</div></div>`;
     }
   },
 
-  _renderBookingsList(el, bookings) {
-    if (!bookings || bookings.length === 0) {
-      el.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">📭</div>
-          <div class="empty-title">ยังไม่มีรายการจอง</div>
-          <div class="empty-desc">ไปดูเครื่องมือที่ต้องการและทำการจองได้เลย</div>
-          <button class="btn btn-primary" onclick="App.navigate('instrument')">ดูเครื่องมือ</button>
+  _renderBookingsList() {
+    const bookings   = this.state.bookings;
+    const filterBar  = document.getElementById('bk-filter-bar');
+    const listEl     = document.getElementById('bookings-list');
+    if (!filterBar || !listEl) return;
+
+    const f = this._myBookingsFilter;
+    const counts = {
+      all:      bookings.length,
+      pending:  bookings.filter(b => [STATUS_P1, STATUS_P2].includes(b.Status || '')).length,
+      approved: bookings.filter(b => b.Status === STATUS_OK).length,
+      rejected: bookings.filter(b => [STATUS_REJ, STATUS_CAN].includes(b.Status || '')).length,
+    };
+
+    filterBar.innerHTML = [
+      { id: 'all',      label: 'ทั้งหมด' },
+      { id: 'pending',  label: 'รอดำเนินการ' },
+      { id: 'approved', label: 'อนุมัติแล้ว' },
+      { id: 'rejected', label: 'ปฏิเสธ/ยกเลิก' },
+    ].map(tab => `
+      <div class="bk-filter-tab ${f === tab.id ? 'active' : ''}"
+           onclick="App._setMyBookingsFilter('${tab.id}')">
+        ${tab.label}
+        ${counts[tab.id] > 0 ? `<span class="bk-filter-count">${counts[tab.id]}</span>` : ''}
+      </div>`).join('');
+
+    let filtered = bookings;
+    if (f === 'pending')  filtered = bookings.filter(b => [STATUS_P1, STATUS_P2].includes(b.Status || ''));
+    if (f === 'approved') filtered = bookings.filter(b => b.Status === STATUS_OK);
+    if (f === 'rejected') filtered = bookings.filter(b => [STATUS_REJ, STATUS_CAN].includes(b.Status || ''));
+
+    if (filtered.length === 0) {
+      listEl.innerHTML = `
+        <div class="bk-empty">
+          <div class="bk-empty-icon">📭</div>
+          <div class="bk-empty-title">ไม่มีรายการ</div>
+          <div class="bk-empty-desc">ยังไม่มีรายการจองในหมวดนี้</div>
+          <button class="btn btn-primary" onclick="App.navigate('instrument')">จองอุปกรณ์</button>
         </div>`;
       return;
     }
 
-    el.innerHTML = bookings.map(b => {
-      const { cls, badge, icon } = statusStyle(b.Status || '');
-      const start = b.Start ? formatDateTime(b.Start) : '-';
-      const end   = b.End   ? formatDateTime(b.End)   : '-';
-      const isCancellable = !['อนุมัติแล้ว','ปฏิเสธ','ยกเลิก'].includes(b.Status || '');
+    listEl.innerHTML = filtered.map(b => this._bookingItemHTML(b, false)).join('');
+  },
 
+  _setMyBookingsFilter(filter) {
+    this._myBookingsFilter = filter;
+    this._renderBookingsList();
+  },
+
+  _bookingItemHTML(b, showStudentName) {
+    const { badge, icon } = statusStyle(b.Status || '');
+    const cat  = CAT_CONFIG[String(b.Category || '').toLowerCase()] || {};
+    const steps = this._wfSteps();
+    const cur   = this._wfStep(b.Status || '');
+    const isRej = b.Status === STATUS_REJ || b.Status === STATUS_CAN;
+    const start = b.Start ? formatDateTime(b.Start) : '-';
+    const end   = b.End   ? formatDateTime(b.End)   : '-';
+
+    const progressHtml = steps.map((step, i) => {
+      let state = 'waiting';
+      if (isRej) {
+        state = i === 0 ? 'done' : (i === cur ? 'rejected' : 'waiting');
+      } else if (i < cur) state = 'done';
+      else if (i === cur) state = 'current';
+
+      const circleInner = state === 'done' ? '✓' : state === 'rejected' ? '✗' : step.icon;
       return `
-        <div class="booking-card ${cls} fade-in">
-          <div class="booking-card-head">
-            <div class="booking-status-icon">${icon}</div>
-            <div style="flex:1;min-width:0;">
-              <div class="booking-item-name">${escHtml(b.ItemName || '-')}</div>
-              <div class="booking-id">${b.BookingID || ''}</div>
-            </div>
-            <span class="booking-badge ${badge}">${escHtml(b.Status || 'N/A')}</span>
-          </div>
-          <div class="booking-card-body">
-            <div>
-              <div class="booking-field-label">เริ่ม</div>
-              <div class="booking-field-value">${start}</div>
-            </div>
-            <div>
-              <div class="booking-field-label">สิ้นสุด</div>
-              <div class="booking-field-value">${end}</div>
-            </div>
-            <div>
-              <div class="booking-field-label">วิชา</div>
-              <div class="booking-field-value">${escHtml(b.Course || '-')}</div>
-            </div>
-            <div>
-              <div class="booking-field-label">ผู้อนุมัติปัจจุบัน</div>
-              <div class="booking-field-value">${escHtml(b.CurrentApproverName || '-')}</div>
-            </div>
-          </div>
-          ${isCancellable ? `
-            <div class="booking-card-foot">
-              <button class="btn-cancel" onclick="App._cancelBooking('${b.BookingID}')">ยกเลิกการจอง</button>
-            </div>` : ''}
+        ${i > 0 ? `<div class="bk-prog-line ${(i <= cur && !isRej) ? 'done' : ''}"></div>` : ''}
+        <div class="bk-prog-step ${state}">
+          <div class="bk-prog-circle">${circleInner}</div>
+          <div class="bk-prog-label">${step.label}</div>
         </div>`;
     }).join('');
+
+    const isCancellable = ![STATUS_OK, STATUS_REJ, STATUS_CAN].includes(b.Status || '');
+
+    return `
+      <div class="bk-item">
+        <div class="bk-item-head">
+          <div>
+            <div class="bk-item-title">${cat.icon || '📦'} ${escHtml(b.ItemName || '-')}</div>
+            <div class="bk-item-meta">
+              <span>${escHtml(b.BookingID || '')}</span>
+              ${showStudentName ? `<span>· 👤 ${escHtml(b.Name || '-')}</span>` : ''}
+            </div>
+          </div>
+          <span class="booking-badge ${badge}">${icon} ${escHtml(b.Status || 'N/A')}</span>
+        </div>
+        <div class="bk-item-body">
+          <div class="bk-meta-row">
+            <span class="bk-meta-item">📅 ${start}</span>
+            ${end !== start && end !== '-' ? `<span class="bk-meta-item">↩ ${end}</span>` : ''}
+            <span class="bk-meta-item">📚 ${escHtml(b.Course || 'ทั่วไป')}</span>
+            ${b.CurrentApproverName ? `<span class="bk-meta-item">👤 ${escHtml(b.CurrentApproverName)}</span>` : ''}
+          </div>
+          <div class="bk-progress">${progressHtml}</div>
+          <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+            ${isCancellable ? `<button class="btn-cancel" onclick="App._cancelBooking('${escHtml(b.BookingID)}')">ยกเลิกการจอง</button>` : ''}
+          </div>
+        </div>
+      </div>`;
+  },
+
+  _wfSteps() {
+    return [
+      { icon: '📝', label: 'ส่งคำขอ' },
+      { icon: '👨‍🏫', label: 'อ.ที่ปรึกษา' },
+      { icon: '📋', label: 'เจ้าหน้าที่' },
+      { icon: '✅', label: 'เสร็จสิ้น' },
+    ];
+  },
+
+  _wfStep(status) {
+    switch (status) {
+      case STATUS_P1:  return 1;
+      case STATUS_P2:  return 2;
+      case STATUS_OK:  return 3;
+      case STATUS_REJ: return 2;
+      case STATUS_CAN: return 1;
+      default:         return 0;
+    }
   },
 
   async _cancelBooking(bookingId) {
@@ -947,51 +1018,55 @@ window.App = {
 
   _skeletonBookings(n) {
     return Array.from({ length: n }, () => `
-      <div style="background:#fff;border-radius:var(--radius-lg);overflow:hidden;margin-bottom:16px;border-left:4px solid var(--border);">
-        <div style="padding:18px 20px;border-bottom:1px solid var(--border);display:flex;gap:14px;align-items:flex-start;">
-          <div class="skeleton" style="width:32px;height:32px;border-radius:50%;flex-shrink:0;"></div>
-          <div style="flex:1;"><div class="skeleton" style="height:16px;width:55%;margin-bottom:8px;"></div><div class="skeleton" style="height:12px;width:35%;"></div></div>
-          <div class="skeleton" style="height:24px;width:80px;border-radius:999px;"></div>
+      <div style="background:#fff;border-radius:var(--radius);border:1.5px solid var(--border);margin-bottom:14px;overflow:hidden;">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center;">
+          <div style="flex:1;"><div class="skeleton" style="height:14px;width:55%;margin-bottom:8px;"></div><div class="skeleton" style="height:12px;width:35%;"></div></div>
+          <div class="skeleton" style="height:24px;width:90px;border-radius:999px;"></div>
         </div>
-        <div style="padding:16px 20px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
-          ${Array.from({length:4},()=>`<div><div class="skeleton" style="height:10px;width:60%;margin-bottom:6px;"></div><div class="skeleton" style="height:14px;width:80%;"></div></div>`).join('')}
-        </div>
+        <div style="padding:14px 18px;"><div class="skeleton" style="height:12px;width:80%;margin-bottom:10px;"></div><div class="skeleton" style="height:30px;width:100%;border-radius:4px;"></div></div>
       </div>`).join('');
   },
 
   /* ================================================== DASHBOARD */
+  _allBookings: [],
+
   async _renderDashboard() {
     const el = document.getElementById('page-dashboard');
     const u  = this.state.user;
 
     if (!u || !this._isStaff()) {
       el.innerHTML = `
-        <div class="dashboard-page">
-          <div class="empty-state">
-            <div class="empty-icon">🔒</div>
-            <div class="empty-title">ไม่มีสิทธิ์เข้าถึง</div>
-            <div class="empty-desc">เฉพาะเจ้าหน้าที่และอาจารย์เท่านั้น</div>
+        <div style="max-width:700px;margin:0 auto;padding:60px 20px;">
+          <div class="bk-empty">
+            <div class="bk-empty-icon">🔒</div>
+            <div class="bk-empty-title">ไม่มีสิทธิ์เข้าถึง</div>
+            <div class="bk-empty-desc">เฉพาะเจ้าหน้าที่และอาจารย์เท่านั้น</div>
           </div>
         </div>`;
       return;
     }
 
     el.innerHTML = `
-      <div class="dashboard-page fade-in">
-        <div class="page-header-row">
-          <h1 class="page-h1">แดช<span>บอร์ด</span></h1>
+      <div class="dash-v2-page">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+          <h1 style="font-size:22px;font-weight:800;">📊 แดชบอร์ด</h1>
           <button class="btn btn-secondary btn-sm" onclick="App._loadDashboard()">↻ รีเฟรช</button>
         </div>
-        <div id="dashboard-stats" class="dashboard-grid">
-          ${this._dashSkeletonStats()}
+        <div id="dash-stats" class="dash-v2-stats">
+          ${Array.from({length:4}, () => `
+            <div class="dash-v2-stat-card">
+              <div class="skeleton" style="width:48px;height:48px;border-radius:var(--radius-sm);flex-shrink:0;"></div>
+              <div style="flex:1;"><div class="skeleton" style="height:26px;width:50%;margin-bottom:6px;"></div><div class="skeleton" style="height:12px;width:70%;"></div></div>
+            </div>`).join('')}
         </div>
-        <div class="dashboard-table-wrap">
-          <div class="dashboard-table-head">
-            <div class="dashboard-table-title">รายการทั้งหมด</div>
-          </div>
-          <div id="dashboard-table" style="padding:20px;">
-            <div class="skeleton" style="height:300px;border-radius:var(--radius);"></div>
-          </div>
+        <div id="dash-tabs" class="dash-v2-tab-nav" style="display:none;">
+          <button class="dash-v2-tab-btn active" onclick="App._switchDashTab('pending', this)">
+            ⏳ รอฉันอนุมัติ <span id="dash-needs-badge" style="background:var(--danger);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;margin-left:4px;display:none;"></span>
+          </button>
+          <button class="dash-v2-tab-btn" onclick="App._switchDashTab('all', this)">📋 ทั้งหมด</button>
+        </div>
+        <div id="dash-content">
+          <div class="skeleton" style="height:300px;border-radius:var(--radius);"></div>
         </div>
       </div>`;
 
@@ -1000,73 +1075,105 @@ window.App = {
 
   async _loadDashboard() {
     try {
-      const all = await apiGet('getAllBookings');
-      this._renderDashStats(all);
-      this._renderDashTable(all);
+      this._allBookings = await apiGet('getAllBookings');
+      this._renderDashStats();
+      this._renderDashTabContent('pending');
+      document.getElementById('dash-tabs').style.display = '';
     } catch (e) {
       showToast('error', 'โหลด dashboard ไม่สำเร็จ', e.message);
     }
   },
 
-  _renderDashStats(all) {
-    const el = document.getElementById('dashboard-stats');
+  _renderDashStats() {
+    const el  = document.getElementById('dash-stats');
     if (!el) return;
+    const all     = this._allBookings;
     const total   = all.length;
     const pending = all.filter(b => [STATUS_P1, STATUS_P2].includes(b.Status || '')).length;
     const approv  = all.filter(b => b.Status === STATUS_OK).length;
-    const cancel  = all.filter(b => [STATUS_REJ, STATUS_CAN].includes(b.Status || '')).length;
+    const needsMe = all.filter(b => this._canApprove(b)).length;
 
-    el.innerHTML = `
-      ${[
-        { icon:'📋', bg:'#eff6ff', num:total,   label:'ทั้งหมด',      color:'var(--info)' },
-        { icon:'⏳', bg:'#fff7ed', num:pending,  label:'รออนุมัติ',    color:'var(--warning)' },
-        { icon:'✅', bg:'#f0fdf4', num:approv,   label:'อนุมัติแล้ว', color:'var(--success)' },
-        { icon:'❌', bg:'#fef2f2', num:cancel,   label:'ปฏิเสธ/ยกเลิก',color:'var(--danger)' },
-      ].map(s => `
-        <div class="dash-stat">
-          <div class="dash-stat-icon" style="background:${s.bg};color:${s.color};">${s.icon}</div>
-          <div>
-            <div class="dash-stat-num" style="color:${s.color};">${s.num}</div>
-            <div class="dash-stat-label">${s.label}</div>
-          </div>
-        </div>`).join('')}`;
+    const badge = document.getElementById('dash-needs-badge');
+    if (badge) {
+      badge.textContent = needsMe;
+      badge.style.display = needsMe > 0 ? '' : 'none';
+    }
+
+    el.innerHTML = [
+      { icon: '📋', bg: '#eff6ff', color: 'var(--info)',    num: total,   label: 'รายการทั้งหมด' },
+      { icon: '⏳', bg: '#fff7ed', color: 'var(--warning)', num: pending, label: 'รอดำเนินการ' },
+      { icon: '✅', bg: '#f0fdf4', color: 'var(--success)', num: approv,  label: 'อนุมัติแล้ว' },
+      { icon: '🔔', bg: '#fef2f2', color: 'var(--danger)',  num: needsMe, label: 'รอฉันดำเนินการ' },
+    ].map(s => `
+      <div class="dash-v2-stat-card">
+        <div class="dash-v2-stat-icon" style="background:${s.bg};color:${s.color};">${s.icon}</div>
+        <div class="dash-v2-stat-info">
+          <div class="dash-v2-stat-num" style="color:${s.color};">${s.num}</div>
+          <div class="dash-v2-stat-label">${s.label}</div>
+        </div>
+      </div>`).join('');
   },
 
-  _renderDashTable(all) {
-    const el = document.getElementById('dashboard-table');
+  _switchDashTab(tab, btn) {
+    document.querySelectorAll('.dash-v2-tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    this._renderDashTabContent(tab);
+  },
+
+  _renderDashTabContent(tab) {
+    const el   = document.getElementById('dash-content');
     if (!el) return;
-    if (all.length === 0) {
-      el.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-title">ยังไม่มีรายการ</div></div>`;
+    const all  = this._allBookings;
+    const items = tab === 'pending'
+      ? all.filter(b => this._canApprove(b))
+      : all.slice().reverse().slice(0, 200);
+
+    if (items.length === 0) {
+      el.innerHTML = `<div class="bk-empty"><div class="bk-empty-icon">🎉</div><div class="bk-empty-title">ไม่มีรายการที่รอดำเนินการ</div></div>`;
       return;
     }
 
-    const rows = all.slice().reverse().slice(0, 200).map(b => {
+    const rows = items.map(b => {
       const { badge } = statusStyle(b.Status || '');
-      const start = b.Start ? String(b.Start).substring(0, 16).replace('T', ' ') : '-';
+      const cat     = CAT_CONFIG[String(b.Category || '').toLowerCase()] || {};
+      const start   = b.Start ? String(b.Start).substring(0, 16).replace('T', ' ') : '-';
+      const canAct  = this._canApprove(b);
+
       return `
         <tr>
-          <td><strong>${escHtml(b.ItemName || '-')}</strong><br><span style="font-size:12px;color:var(--text-3);">${escHtml(b.BookingID || '')}</span></td>
-          <td>${escHtml(b.Name || '-')}</td>
-          <td style="font-size:13px;">${escHtml(b.Email || '-')}</td>
+          <td>
+            <div style="font-weight:700;font-size:14px;">${cat.icon || ''} ${escHtml(b.ItemName || '-')}</div>
+            <div style="font-size:12px;color:var(--text-3);">${escHtml(b.BookingID || '')}</div>
+          </td>
+          <td>
+            <div style="font-size:14px;">${escHtml(b.Name || '-')}</div>
+            <div style="font-size:11px;color:var(--text-3);">${escHtml(b.Email || '-')}</div>
+          </td>
+          <td style="font-size:13px;">${escHtml(b.Course || '-')}</td>
           <td style="font-size:13px;">${start}</td>
-          <td>${escHtml(b.Category || '-')}</td>
-          <td><span class="status-badge ${badge}">${escHtml(b.Status || '-')}</span></td>
-          <td style="font-size:12px;color:var(--text-3);">${escHtml(b.CurrentApproverName || '-')}</td>
+          <td><span class="booking-badge ${badge}">${escHtml(b.Status || '-')}</span></td>
+          <td>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              ${canAct ? `
+                <button class="btn btn-sm" style="background:#f0fdf4;color:var(--success);border:1px solid #86efac;" onclick="App._approveBooking('${escHtml(b.BookingID)}')">✅ อนุมัติ</button>
+                <button class="btn btn-sm" style="background:#fef2f2;color:var(--danger);border:1px solid #fecaca;" onclick="App._rejectBooking('${escHtml(b.BookingID)}')">❌ ปฏิเสธ</button>
+              ` : `<span style="font-size:12px;color:var(--text-3);">${escHtml(b.CurrentApproverName || '-')}</span>`}
+            </div>
+          </td>
         </tr>`;
     }).join('');
 
     el.innerHTML = `
-      <div class="table-wrapper">
-        <table class="dash-table">
+      <div class="dash-v2-table-wrap">
+        <table class="dash-v2-table">
           <thead>
             <tr>
               <th>อุปกรณ์ / BookingID</th>
               <th>ผู้จอง</th>
-              <th>อีเมล</th>
+              <th>วิชา</th>
               <th>วันเวลาเริ่ม</th>
-              <th>ประเภท</th>
               <th>สถานะ</th>
-              <th>ผู้อนุมัติ</th>
+              <th>การดำเนินการ</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -1074,12 +1181,48 @@ window.App = {
       </div>`;
   },
 
-  _dashSkeletonStats() {
-    return Array.from({length:4}, () => `
-      <div class="dash-stat">
-        <div class="skeleton" style="width:52px;height:52px;border-radius:var(--radius);flex-shrink:0;"></div>
-        <div style="flex:1;"><div class="skeleton" style="height:28px;width:50%;margin-bottom:8px;"></div><div class="skeleton" style="height:12px;width:70%;"></div></div>
-      </div>`).join('');
+  _canApprove(b) {
+    const u = this.state.user;
+    if (!u || !this._isStaff()) return false;
+    const role   = u.role;
+    const status = b.Status || '';
+    if (role === 'ADVISORS' && status === STATUS_P1) {
+      return (b.AdvisorEmail || '').toLowerCase().trim() === u.email;
+    }
+    if (status === STATUS_P2) {
+      const cat    = (b.Category || '').toLowerCase();
+      const course = (b.Course   || '').toLowerCase();
+      if (/instrument|analyt/.test(cat))    return role === 'VIEWERS';
+      if (/team.?project.?2/.test(course))  return role === 'STAFF_PROJECT_2';
+      return role === 'STAFF_FLOOR_1';
+    }
+    return false;
+  },
+
+  async _approveBooking(bookingId) {
+    if (!confirm('ยืนยันการอนุมัติการจองนี้?')) return;
+    try {
+      const result = await apiPost({ action: 'approveBooking', bookingId });
+      if (!result.success) throw new Error(result.error || 'เกิดข้อผิดพลาด');
+      showToast('success', 'อนุมัติสำเร็จ', '');
+      this._allBookings = [];
+      await this._loadDashboard();
+    } catch (e) {
+      showToast('error', 'อนุมัติไม่สำเร็จ', e.message);
+    }
+  },
+
+  async _rejectBooking(bookingId) {
+    if (!confirm('ยืนยันการปฏิเสธการจองนี้?')) return;
+    try {
+      const result = await apiPost({ action: 'rejectBooking', bookingId });
+      if (!result.success) throw new Error(result.error || 'เกิดข้อผิดพลาด');
+      showToast('info', 'ปฏิเสธการจองแล้ว', '');
+      this._allBookings = [];
+      await this._loadDashboard();
+    } catch (e) {
+      showToast('error', 'ปฏิเสธไม่สำเร็จ', e.message);
+    }
   },
 
   /* ================================================== MODAL */

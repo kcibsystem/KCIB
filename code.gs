@@ -1,12 +1,11 @@
 // ============================================================
-// KCIB Backend — Google Apps Script v2.3 (FULL VERSION)
+// KCIB Backend — Google Apps Script v2.4
 // Spreadsheet: 18nu0jZcDyyEJGfylpazITc5lK2gdb0u5rrmESQnPVZ4
 // Deploy: Extensions > Apps Script > Deploy > New deployment
 //   Execute as: Me | Who has access: Anyone
 // ============================================================
 
-const SHEET_ID    = "18nu0jZcDyyEJGfylpazITc5lK2gdb0u5rrmESQnPVZ4";
-const KCIB_SITE_URL = "https://kcibsystem.github.io/KCIB/"; 
+const SHEET_ID = "18nu0jZcDyyEJGfylpazITc5lK2gdb0u5rrmESQnPVZ4";
 
 const SHEETS = {
   BOOKINGS:  "ALlBooking",
@@ -61,12 +60,6 @@ function colIdx_(headers, name) { return headers.indexOf(name); }
 // ===================== ROUTER =====================
 function doGet(e) {
   const p = e.parameter || {};
-
-  // Email approval link handler
-  if (p.action === "process_email") {
-    return handleEmailAction(p.type, p.bookingId);
-  }
-
   try {
     switch (p.func) {
       case "init":          return jsonOut(getInitData());
@@ -84,9 +77,11 @@ function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents || "{}");
     switch (data.action) {
-      case "submitBooking": return jsonOut(submitBooking(data));
-      case "cancelBooking": return jsonOut(cancelBooking(data));
-default:              return jsonOut({ error: "Invalid action: " + data.action });
+      case "submitBooking":  return jsonOut(submitBooking(data));
+      case "cancelBooking":  return jsonOut(cancelBooking(data));
+      case "approveBooking": return jsonOut(approveBooking(data));
+      case "rejectBooking":  return jsonOut(rejectBooking(data));
+      default:               return jsonOut({ error: "Invalid action: " + data.action });
     }
   } catch (err) {
     Logger.log("doPost error: " + err.stack);
@@ -168,9 +163,8 @@ function submitBooking(data) {
   const sheet = sh_(SHEETS.BOOKINGS);
   if (!sheet) throw new Error("Sheet 'ALlBooking' not found");
 
-  const staffCfg  = getStaffConfig();
-  const advisors  = staffCfg["ADVISORS"] || [];
-
+  const staffCfg     = getStaffConfig();
+  const advisors     = staffCfg["ADVISORS"] || [];
   const chosenAdvisor = advisors.find(a => a.email === data.advisorEmail) || {};
   const advisorEmail  = chosenAdvisor.email || data.advisorEmail || "";
   const advisorName   = chosenAdvisor.name  || advisorEmail;
@@ -180,33 +174,22 @@ function submitBooking(data) {
   const newRow = [
     new Date(),
     bookingId,
-    data.email        || "",
-    data.name         || "",
-    data.category     || "",
-    data.itemName     || "",
-    data.itemId       || "",
-    data.course       || "",
-    data.quantity     || "",
-    data.start        || "",
-    data.end          || "",
-    data.note         || "",
+    data.email    || "",
+    data.name     || "",
+    data.category || "",
+    data.itemName || "",
+    data.itemId   || "",
+    data.course   || "",
+    data.quantity || "",
+    data.start    || "",
+    data.end      || "",
+    data.note     || "",
     advisorEmail,
     STATUS.PENDING_ADVISOR,
     advisorName
   ];
 
   sheet.appendRow(newRow);
-
-  if (advisorEmail) {
-    const bookingObj = {
-      bookingId, email: data.email, name: data.name,
-      category: data.category, itemName: data.itemName, itemId: data.itemId,
-      course: data.course, quantity: data.quantity,
-      start: data.start, end: data.end, note: data.note
-    };
-    sendApprovalEmail_(bookingObj, [{ email: advisorEmail, name: advisorName }]);
-  }
-
   return { success: true, bookingId };
 }
 
@@ -241,191 +224,76 @@ function cancelBooking(data) {
   return { success: true };
 }
 
-// ===================== EMAIL APPROVAL HANDLER =====================
-function handleEmailAction(type, bookingId) {
-  if (!bookingId) return renderResultPage_("เกิดข้อผิดพลาด", "ไม่พบ BookingID", "❌");
+// ===================== APPROVE BOOKING =====================
+function approveBooking(data) {
+  const sheet = sh_(SHEETS.BOOKINGS);
+  if (!sheet) return { success: false, error: "Sheet not found" };
 
-  try {
-    const sheet   = sh_(SHEETS.BOOKINGS);
-    const headers = getHeaders_(SHEETS.BOOKINGS);
-    const bidCol  = colIdx_(headers, "BookingID") + 1;
-    const stCol   = colIdx_(headers, "Status") + 1;
-    const caCol   = colIdx_(headers, "CurrentApproverName") + 1;
+  const headers = getHeaders_(SHEETS.BOOKINGS);
+  const allData = sheet.getDataRange().getValues();
+  const bidCol  = colIdx_(headers, "BookingID");
+  const catCol  = colIdx_(headers, "Category");
+  const crsCol  = colIdx_(headers, "Course");
+  const stCol   = colIdx_(headers, "Status") + 1;
+  const caCol   = colIdx_(headers, "CurrentApproverName") + 1;
 
-    const data  = sheet.getDataRange().getValues();
-    let rowNo = -1;
-    for (let i = 1; i < data.length; i++) {
-      if (String(data[i][bidCol - 1]) === bookingId) { rowNo = i + 1; break; }
-    }
-    if (rowNo === -1) return renderResultPage_("ไม่พบรายการ", "ไม่พบการจอง ID: " + bookingId, "❌");
-
-    const currentStatus = String(sheet.getRange(rowNo, stCol).getValue()).trim();
-
-    if ([STATUS.APPROVED, STATUS.REJECTED, STATUS.CANCELLED].includes(currentStatus)) {
-      return renderResultPage_("ดำเนินการไปแล้ว", "การจองนี้ถูกดำเนินการไปแล้ว", "⚠️");
-    }
-
-    const rowData = data[rowNo - 1];
-    const booking = {};
-    headers.forEach((h, i) => {
-      booking[h] = rowData[i] instanceof Date ? rowData[i].toISOString() : rowData[i];
-    });
-    const staffCfg = getStaffConfig();
-
-    if (type === "reject") {
-      sheet.getRange(rowNo, stCol).setValue(STATUS.REJECTED);
-      sheet.getRange(rowNo, caCol).setValue("ปฏิเสธ");
-      sendStudentNotifyEmail_(booking, "rejected");
-      return renderResultPage_("ปฏิเสธการจองสำเร็จ", `ปฏิเสธการจอง "${booking.ItemName}" เรียบร้อยแล้ว`, "🚫");
-    }
-
-    if (currentStatus === STATUS.PENDING_ADVISOR) {
-      return approveStep1_(sheet, rowNo, stCol, caCol, booking, staffCfg);
-    }
-    if (currentStatus === STATUS.PENDING_STEP2) {
-      return approveStep2_(sheet, rowNo, stCol, caCol, booking, staffCfg);
-    }
-
-    return renderResultPage_("เกิดข้อผิดพลาด", "สถานะไม่ถูกต้อง: " + currentStatus, "❌");
-
-  } catch (err) {
-    Logger.log("handleEmailAction error: " + err.stack);
-    return renderResultPage_("เกิดข้อผิดพลาด", err.message, "❌");
+  let rowNo = -1;
+  for (let i = 1; i < allData.length; i++) {
+    if (String(allData[i][bidCol]) === data.bookingId) { rowNo = i + 1; break; }
   }
-}
+  if (rowNo === -1) return { success: false, error: "Booking not found" };
 
-function approveStep1_(sheet, rowNo, stCol, caCol, booking, staffCfg) {
-  const category = String(booking.Category || "");
-  const course   = String(booking.Course   || "");
-  const isInstr  = /instrument|analyt/i.test(category);
-  const isTP2    = /team.?project.?2/i.test(course);
+  const rowData       = allData[rowNo - 1];
+  const currentStatus = String(sheet.getRange(rowNo, stCol).getValue()).trim();
+  const category      = String(rowData[catCol] || "");
+  const course        = String(rowData[crsCol]  || "");
 
-  let step2Approvers = [];
-  if (isInstr)     { step2Approvers = staffCfg["VIEWERS"]        || []; }
-  else if (isTP2)  { step2Approvers = staffCfg["STAFF_PROJECT_2"] || []; }
-  else             { step2Approvers = staffCfg["STAFF_FLOOR_1"]   || []; }
+  if (currentStatus === STATUS.PENDING_ADVISOR) {
+    const staffCfg     = getStaffConfig();
+    const isInstr      = /instrument|analyt/i.test(category);
+    const isTP2        = /team.?project.?2/i.test(course);
+    let step2Approvers = [];
+    if (isInstr)     step2Approvers = staffCfg["VIEWERS"]        || [];
+    else if (isTP2)  step2Approvers = staffCfg["STAFF_PROJECT_2"] || [];
+    else             step2Approvers = staffCfg["STAFF_FLOOR_1"]   || [];
 
-  if (step2Approvers.length === 0) {
-    finalizeApproval_(sheet, rowNo, stCol, caCol, booking, staffCfg);
-    return renderResultPage_("อนุมัติสำเร็จ!", `การจอง "${booking.ItemName}" ได้รับการอนุมัติแล้ว`, "✅");
+    if (step2Approvers.length === 0) {
+      sheet.getRange(rowNo, stCol).setValue(STATUS.APPROVED);
+      sheet.getRange(rowNo, caCol).setValue("อนุมัติแล้ว");
+    } else {
+      sheet.getRange(rowNo, stCol).setValue(STATUS.PENDING_STEP2);
+      sheet.getRange(rowNo, caCol).setValue(step2Approvers.map(a => a.name).join(", "));
+    }
+    return { success: true };
   }
 
-  sheet.getRange(rowNo, stCol).setValue(STATUS.PENDING_STEP2);
-  sheet.getRange(rowNo, caCol).setValue(step2Approvers.map(a => a.name).join(", "));
-  sendApprovalEmail_(booking, step2Approvers);
+  if (currentStatus === STATUS.PENDING_STEP2) {
+    sheet.getRange(rowNo, stCol).setValue(STATUS.APPROVED);
+    sheet.getRange(rowNo, caCol).setValue("อนุมัติแล้ว");
+    return { success: true };
+  }
 
-  return renderResultPage_(
-    "อนุมัติขั้นที่ 1 สำเร็จ",
-    `ส่งต่อให้ ${step2Approvers.map(a => a.name).join(", ")} อนุมัติขั้นต่อไปแล้ว`,
-    "✅"
-  );
+  return { success: false, error: "ไม่สามารถอนุมัติสถานะนี้ได้: " + currentStatus };
 }
 
-function approveStep2_(sheet, rowNo, stCol, caCol, booking, staffCfg) {
-  finalizeApproval_(sheet, rowNo, stCol, caCol, booking, staffCfg);
-  return renderResultPage_("อนุมัติสำเร็จ!", `การจอง "${booking.ItemName}" ได้รับการอนุมัติครบแล้ว`, "✅");
-}
+// ===================== REJECT BOOKING =====================
+function rejectBooking(data) {
+  const sheet = sh_(SHEETS.BOOKINGS);
+  if (!sheet) return { success: false, error: "Sheet not found" };
 
-function finalizeApproval_(sheet, rowNo, stCol, caCol, booking, staffCfg) {
-  sheet.getRange(rowNo, stCol).setValue(STATUS.APPROVED);
-  sheet.getRange(rowNo, caCol).setValue("อนุมัติแล้ว");
-  sendStudentNotifyEmail_(booking, "approved");
-  const viewers = staffCfg["VIEWERS"] || [];
-  if (viewers.length > 0) sendViewerNotifyEmail_(booking, viewers);
-}
+  const headers = getHeaders_(SHEETS.BOOKINGS);
+  const allData = sheet.getDataRange().getValues();
+  const bidCol  = colIdx_(headers, "BookingID");
+  const stCol   = colIdx_(headers, "Status") + 1;
+  const caCol   = colIdx_(headers, "CurrentApproverName") + 1;
 
-function setupDailyTrigger() {
-  ScriptApp.getProjectTriggers().forEach(t => {
-    if (t.getHandlerFunction() === "sendDailyReminderDigest") {
-      ScriptApp.deleteTrigger(t);
-    }
-  });
-  ScriptApp.newTrigger("sendDailyReminderDigest")
-    .timeBased()
-    .atHour(12)
-    .nearMinute(0)
-    .everyDays(1)
-    .create();
-}
+  let rowNo = -1;
+  for (let i = 1; i < allData.length; i++) {
+    if (String(allData[i][bidCol]) === data.bookingId) { rowNo = i + 1; break; }
+  }
+  if (rowNo === -1) return { success: false, error: "Booking not found" };
 
-function sendDailyReminderDigest() {
-  const allBookings = sheetToObjects(SHEETS.BOOKINGS);
-  const staffCfg   = getStaffConfig();
-  const pending = allBookings.filter(b => b.Status === STATUS.PENDING_ADVISOR || b.Status === STATUS.PENDING_STEP2);
-  if (pending.length === 0) return;
-  const byApprover = {};
-  pending.forEach(b => {
-    if (b.Status === STATUS.PENDING_ADVISOR) {
-      if (b.AdvisorEmail) {
-        const key = b.AdvisorEmail.toLowerCase().trim();
-        if (!byApprover[key]) byApprover[key] = [];
-        byApprover[key].push(b);
-      }
-    } else if (b.Status === STATUS.PENDING_STEP2) {
-      const cat = String(b.Category || "").toLowerCase();
-      const course = String(b.Course || "").toLowerCase();
-      let approvers = [];
-      if (/instrument|analyt/.test(cat)) { approvers = staffCfg["VIEWERS"] || []; }
-      else if (/team.?project.?2/.test(course)) { approvers = staffCfg["STAFF_PROJECT_2"] || []; }
-      else { approvers = staffCfg["STAFF_FLOOR_1"] || []; }
-      approvers.forEach(a => {
-        const key = a.email.toLowerCase().trim();
-        if (!byApprover[key]) byApprover[key] = [];
-        byApprover[key].push(b);
-      });
-    }
-  });
-  Object.entries(byApprover).forEach(([email, bookings]) => {
-    try { sendDigestEmail_(email, bookings); } catch (err) {}
-  });
-}
-
-function sendDigestEmail_(toEmail, bookings) {
-  const count = bookings.length;
-  const rows = bookings.map(b => {
-    const start = b.Start ? String(b.Start).replace("T", " ").substring(0, 16) : "-";
-    const end = b.End ? String(b.End).replace("T", " ").substring(0, 16) : "-";
-    const status = b.Status || "-";
-    const statusColor = status === STATUS.PENDING_ADVISOR ? "#e65100" : "#1565C0";
-    return `<tr><td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-weight:600;">${b.ItemName || "-"}</td><td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;">${b.Name || "-"}</td><td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;">${start}</td><td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;">${end}</td><td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;"><span style="background:${statusColor}1a;color:${statusColor};padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;">${status}</span></td></tr>`;
-  }).join("");
-  const html = `<html><body style="font-family:Arial,sans-serif;padding:20px;background:#f4f4f4;"><div style="background:#fff;padding:20px;border-radius:10px;max-width:600px;margin:0 auto;"><h2>[KCIB] รายการรออนุมัติ (${count})</h2><table width="100%" border="0" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">${rows}</table><div style="margin-top:20px;text-align:center;"><a href="${KCIB_SITE_URL}" style="background:#ff6d38;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;">ไปที่ระบบ KCIB</a></div></div></body></html>`;
-  MailApp.sendEmail({ to: toEmail, name: "KCIB System", subject: `[KCIB] คุณมี ${count} รายการรออนุมัติ`, htmlBody: html });
-}
-
-function sendApprovalEmail_(booking, approvers) {
-  if (!approvers || approvers.length === 0) return;
-  const webUrl = ScriptApp.getService().getUrl();
-  const bookingId = booking.bookingId || booking.BookingID || "";
-  const approveUrl = `${webUrl}?action=process_email&type=approve&bookingId=${encodeURIComponent(bookingId)}`;
-  const rejectUrl = `${webUrl}?action=process_email&type=reject&bookingId=${encodeURIComponent(bookingId)}`;
-  const toEmails = approvers.map(a => a.email).join(",");
-  const itemName = booking.itemName || booking.ItemName || "";
-  const studentName = booking.name || booking.Name || "";
-  const html = `<html><body style="font-family:Arial,sans-serif;padding:20px;"><div style="background:#f9f9f9;padding:20px;border-radius:10px;"><h3>มีการจองใหม่รออนุมัติ</h3><p>อุปกรณ์: <b>${itemName}</b></p><p>ผู้จอง: <b>${studentName}</b></p><div style="margin-top:20px;"><a href="${approveUrl}" style="background:#2e7d32;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;margin-right:10px;">อนุมัติ</a><a href="${rejectUrl}" style="background:#c62828;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;">ปฏิเสธ</a></div></div></body></html>`;
-  MailApp.sendEmail({ to: toEmails, name: "KCIB System", subject: `[KCIB] รออนุมัติ: ${itemName} (${studentName})`, htmlBody: html });
-}
-
-function sendStudentNotifyEmail_(booking, type) {
-  const email = String(booking.Email || "").trim();
-  const itemName = String(booking.ItemName || "");
-  if (!email) return;
-  const isApproved = type === "approved";
-  const html = `<html><body><h3>การจอง ${itemName} ${isApproved ? "ได้รับการอนุมัติแล้ว" : "ถูกปฏิเสธ"}</h3><p>กรุณาตรวจสอบในระบบ</p></body></html>`;
-  MailApp.sendEmail({ to: email, name: "KCIB System", subject: `[KCIB] ผลการจอง: ${itemName}`, htmlBody: html });
-}
-
-function sendViewerNotifyEmail_(booking, viewers) {
-  if (!viewers || viewers.length === 0) return;
-  const toEmails = viewers.map(v => v.email).join(",");
-  const itemName = String(booking.ItemName || "");
-  const studentName = String(booking.Name || "");
-  const html = `<html><body><h3>การจองอนุมัติแล้ว (รับทราบ)</h3><p>อุปกรณ์: ${itemName}</p><p>ผู้จอง: ${studentName}</p></body></html>`;
-  MailApp.sendEmail({ to: toEmails, name: "KCIB System", subject: `[KCIB] แจ้งรับทราบ: ${itemName}`, htmlBody: html });
-}
-
-function renderResultPage_(title, subtitle, icon) {
-  const color = icon === "✅" ? "#2e7d32" : "#c62828";
-  const html = `<html><body style="font-family:Arial;text-align:center;padding:50px;"><h1>${icon}</h1><h2 style="color:${color}">${title}</h2><p>${subtitle}</p><br><a href="${KCIB_SITE_URL}">กลับสู่ระบบ</a></body></html>`;
-  return HtmlService.createHtmlOutput(html).setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  sheet.getRange(rowNo, stCol).setValue(STATUS.REJECTED);
+  sheet.getRange(rowNo, caCol).setValue("ปฏิเสธ");
+  return { success: true };
 }
