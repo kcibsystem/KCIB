@@ -1,5 +1,5 @@
 /**
- * KCIB Gemini Chatbot via Apps Script (Secure Version)
+ * KCIB Gemini Chatbot via Apps Script (Clean Version)
  */
 
 const Chatbot = {
@@ -72,36 +72,25 @@ const Chatbot = {
     const typingId = this._addTyping();
 
     try {
-      // เรียกผ่าน SCRIPT_URL ที่กำหนดไว้ใน index.html
       if (typeof SCRIPT_URL === 'undefined') throw new Error("ไม่พบ SCRIPT_URL");
 
-      const response = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors', // ใช้ no-cors สำหรับ Apps Script POST บางกรณี หรือจัดการที่ Apps Script
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'chat',
-          message: text
-        })
-      });
-
-      // หมายเหตุ: Apps Script POST มักจะมีปัญหาเรื่องการอ่าน Response ตรงๆ เพราะ CORS 
-      // หากใช้ mode 'no-cors' จะอ่าน body ไม่ได้ 
-      // แนะนำให้ใช้ GET สำหรับ Chat เพื่อความง่าย หรือจัดการ CORS ใน Apps Script
-      
-      // เดี๋ยวเราลองเปลี่ยนเป็นส่งแบบ GET เพื่อให้อ่านค่าตอบกลับได้ง่ายที่สุดครับ
+      // ใช้ GET เพื่อเลี่ยงปัญหา CORS กับ Apps Script
       const getUrl = `${SCRIPT_URL}?action=chat&message=${encodeURIComponent(text)}`;
       const res = await fetch(getUrl);
+      
+      if (!res.ok) throw new Error("Network response was not ok");
+      
       const data = await res.json();
 
       this._removeTyping(typingId);
       if (data.status === 'success') {
         this._addMessage('bot', data.reply);
       } else {
-        throw new Error(data.message || "เกิดข้อผิดพลาดจากเซิร์ฟเวอร์");
+        throw new Error(data.message || "เซิร์ฟเวอร์แจ้งข้อผิดพลาด");
       }
 
     } catch (error) {
+      console.error("Chatbot Error:", error);
       this._removeTyping(typingId);
       this._addMessage('bot', "❌ Error: " + error.message);
     }
