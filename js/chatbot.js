@@ -1,15 +1,13 @@
 /**
- * KCIB ChatGPT Chatbot
+ * KCIB Gemini Chatbot via Apps Script (Secure Version)
  */
 
 const Chatbot = {
   isOpen: false,
   messages: [],
-  systemPrompt: '',
 
   init() {
     this._createUI();
-    this._buildSystemPrompt();
     this._attachEvents();
   },
 
@@ -25,7 +23,7 @@ const Chatbot = {
       <div id="chatbot-window">
         <div class="chat-header">
           <div class="chat-header-title">
-            <span>KCIB AI Assistant (ChatGPT)</span>
+            <span>KCIB AI Assistant</span>
           </div>
           <button class="chat-close-btn">&times;</button>
         </div>
@@ -39,10 +37,6 @@ const Chatbot = {
       </div>
     `;
     document.body.insertAdjacentHTML('beforeend', chatbotHTML);
-  },
-
-  _buildSystemPrompt() {
-    this.systemPrompt = "คุณคือผู้ช่วย AI ของระบบ KCIB (KMITL ChE Inventory & Booking) ภาควิชาวิศวกรรมเคมี สจล. ให้ข้อมูลสุภาพและเป็นกันเอง";
   },
 
   _attachEvents() {
@@ -78,9 +72,35 @@ const Chatbot = {
     const typingId = this._addTyping();
 
     try {
-      const response = await this._callChatGPT(text);
+      // เรียกผ่าน SCRIPT_URL ที่กำหนดไว้ใน index.html
+      if (typeof SCRIPT_URL === 'undefined') throw new Error("ไม่พบ SCRIPT_URL");
+
+      const response = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors', // ใช้ no-cors สำหรับ Apps Script POST บางกรณี หรือจัดการที่ Apps Script
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'chat',
+          message: text
+        })
+      });
+
+      // หมายเหตุ: Apps Script POST มักจะมีปัญหาเรื่องการอ่าน Response ตรงๆ เพราะ CORS 
+      // หากใช้ mode 'no-cors' จะอ่าน body ไม่ได้ 
+      // แนะนำให้ใช้ GET สำหรับ Chat เพื่อความง่าย หรือจัดการ CORS ใน Apps Script
+      
+      // เดี๋ยวเราลองเปลี่ยนเป็นส่งแบบ GET เพื่อให้อ่านค่าตอบกลับได้ง่ายที่สุดครับ
+      const getUrl = `${SCRIPT_URL}?action=chat&message=${encodeURIComponent(text)}`;
+      const res = await fetch(getUrl);
+      const data = await res.json();
+
       this._removeTyping(typingId);
-      this._addMessage('bot', response);
+      if (data.status === 'success') {
+        this._addMessage('bot', data.reply);
+      } else {
+        throw new Error(data.message || "เกิดข้อผิดพลาดจากเซิร์ฟเวอร์");
+      }
+
     } catch (error) {
       this._removeTyping(typingId);
       this._addMessage('bot', "❌ Error: " + error.message);
@@ -101,7 +121,7 @@ const Chatbot = {
     const div = document.createElement('div');
     div.className = 'typing';
     div.id = 'typing-' + Date.now();
-    div.innerText = 'ChatGPT กำลังคิด...';
+    div.innerText = 'AI กำลังคิด...';
     container.appendChild(div);
     return div.id;
   },
@@ -109,38 +129,6 @@ const Chatbot = {
   _removeTyping(id) {
     const el = document.getElementById(id);
     if (el) el.remove();
-  },
-
-  async _callChatGPT(userText) {
-    const key = (typeof OPENAI_API_KEY !== 'undefined') ? OPENAI_API_KEY.trim() : "";
-    if (!key || key.includes("sk-proj-")) {
-        // Simple check: make sure it's not the placeholder or empty
-        if (!key) throw new Error("ไม่พบ OpenAI API Key");
-    }
-
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${key}`
-      },
-      body: JSON.stringify({
-        model: "gpt-3.5-turbo", // หรือ "gpt-4o-mini"
-        messages: [
-          { role: "system", content: this.systemPrompt },
-          { role: "user", content: userText }
-        ],
-        temperature: 0.7
-      })
-    });
-
-    const data = await response.json();
-    
-    if (data.error) {
-      throw new Error(data.error.message);
-    }
-    
-    return data.choices[0].message.content;
   }
 };
 
