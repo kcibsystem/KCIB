@@ -43,8 +43,10 @@ window.App = {
     holidays:    new Set(),// Set<"yyyy-MM-dd">
     staffConfig: {},       // { ROLE: [{email, name}] }
     bookings:    [],       // cached my-bookings
+    cart:        [],       // cart items: { item, id }
     initLoaded:  false
   },
+  _notifCount: 0,
 
 
   /* -------------------------------------------------- BOOT */
@@ -76,6 +78,11 @@ window.App = {
     this._route();
     this._renderNavRight();
     this._renderGSI();
+
+    // Load notification count in background (after UI ready)
+    if (this.state.user) {
+      setTimeout(() => this._loadNotifData(), 800);
+    }
   },
 
   /* -------------------------------------------------- INIT DATA */
@@ -122,6 +129,9 @@ window.App = {
     this._renderNavRight();
     this._updateAuthLinks();
     showToast('success', 'เข้าสู่ระบบสำเร็จ', `ยินดีต้อนรับ ${this.state.user.givenName}`);
+
+    // Load notification count in background
+    setTimeout(() => this._loadNotifData(), 500);
 
     // Navigate to current page (refresh view)
     this._route();
@@ -170,7 +180,7 @@ window.App = {
   _roleLabel(role) {
     const map = {
       ADVISORS:        'อาจารย์ที่ปรึกษา',
-      STAFF_FLOOR_1:   'เจ้าหน้าที่ห้องปฏิบัติการ',
+      STAFF_FLOOR_1:   'เจ้าหน้าที่ห้องปฏิบัติการชั้น 1',
       STAFF_PROJECT_2: 'เจ้าหน้าที่ TEAM PROJECT 2',
       VIEWERS:         'ผู้ดูแลระบบ',
       STUDENT:         'นักศึกษา'
@@ -185,25 +195,37 @@ window.App = {
 
   /* -------------------------------------------------- NAVBAR */
   _initNavbar() {
-    const ham = document.getElementById('nav-hamburger');
-    if (!ham) return;
-    ham.addEventListener('click', navToggle);
+    // navToggle is already wired via onclick in HTML — no duplicate listener needed
   },
 
   _renderNavRight() {
     const el = document.getElementById('nav-right');
     if (!el) return;
-    const u = this.state.user;
+    const u    = this.state.user;
+    const cart = this.state.cart;
+
+    const cartBtnHtml = cart.length > 0
+      ? `<button class="cart-btn" onclick="App._openCart()" title="รายการจอง">
+           📋 รายการจอง
+           <span class="cart-count">${cart.length}</span>
+         </button>`
+      : '';
 
     if (!u) {
-      el.innerHTML = `<div class="nav-signin-btn"><div id="g_id_signin_button"></div></div>`;
+      el.innerHTML = `${cartBtnHtml}<div class="nav-signin-btn"><div id="g_id_signin_button"></div></div>`;
       this._renderGSI();
     } else {
       const avatarHtml = u.picture
         ? `<img class="user-avatar-img" src="${u.picture}" alt="${u.givenName}" referrerpolicy="no-referrer">`
         : `<div class="user-avatar-init">${(u.givenName || u.name || 'U').charAt(0).toUpperCase()}</div>`;
 
+      const notifCount = this._notifCount || 0;
       el.innerHTML = `
+        ${cartBtnHtml}
+        <button class="notif-btn" id="notif-btn" onclick="App._toggleNotifDropdown(event)" title="การแจ้งเตือน">
+          🔔
+          <span class="notif-badge" id="notif-badge" style="display:${notifCount > 0 ? 'flex' : 'none'};">${notifCount}</span>
+        </button>
         <div class="user-menu" id="user-menu-btn">
           ${avatarHtml}
           <div>
@@ -219,6 +241,12 @@ window.App = {
       });
     }
     this._updateAuthLinks();
+    // Mobile cart link visibility
+    const mobileCartLink = document.getElementById('mobile-cart-link');
+    if (mobileCartLink) {
+      mobileCartLink.style.display = this.state.cart.length > 0 ? '' : 'none';
+      mobileCartLink.textContent = `📋 รายการจอง (${this.state.cart.length})`;
+    }
   },
 
   _toggleUserDropdown() {
@@ -251,8 +279,16 @@ window.App = {
       </div>`;
     document.body.appendChild(menu);
 
+    // Align dropdown to the right edge of the user-menu button
     const menuBtn = document.getElementById('user-menu-btn');
-    if (menuBtn) menuBtn.classList.add('open');
+    if (menuBtn) {
+      menuBtn.classList.add('open');
+      const rect = menuBtn.getBoundingClientRect();
+      menu.style.position = 'fixed';
+      menu.style.top  = (rect.bottom + 8) + 'px';
+      menu.style.left = 'auto';
+      menu.style.right = (window.innerWidth - rect.right) + 'px';
+    }
 
     setTimeout(() => {
       document.addEventListener('click', closeDropdown, { once: true });
@@ -370,7 +406,13 @@ window.App = {
 
           <div class="section-label">หมวดหมู่อุปกรณ์</div>
           <h2 class="section-title">เลือกประเภทที่ต้องการจอง</h2>
-          <p class="section-desc">ข้อมูลแสดงผลแบบ Real-time จาก Google Sheets ของภาควิชา</p>
+          <p class="section-desc">
+            ข้อมูลแสดงผลแบบ Real-time จาก Google Sheets ของภาควิชา<br>
+            <span class="realtime-ts">
+              <span class="realtime-dot"></span>
+              อัปเดตล่าสุด: ${new Date().toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok' })} น.
+            </span>
+          </p>
 
           <div class="cat-grid stagger">
             ${Object.values(CAT_CONFIG).map(cat => `
@@ -458,14 +500,16 @@ window.App = {
   },
 
   /* ================================================== EQUIPMENT PAGE */
-  _currentCategory:    '',
-  _currentFilter:      '',
-  _currentSearch:      '',
+  _currentCategory:        '',
+  _currentFilter:          '',
+  _currentSearch:          '',
+  _currentLocationFilter:  '',
 
   _renderEquipment(catId) {
-    this._currentCategory = catId;
-    this._currentFilter   = '';
-    this._currentSearch   = '';
+    this._currentCategory       = catId;
+    this._currentFilter         = '';
+    this._currentSearch         = '';
+    this._currentLocationFilter = '';
     const cat = CAT_CONFIG[catId];
     if (!cat) { this.navigate('home'); return; }
 
@@ -497,6 +541,31 @@ window.App = {
       document.getElementById('equip-grid').innerHTML = this._skeletonGrid(6);
       return;
     }
+    this._renderLocationFilters();
+    this._renderEquipGrid();
+  },
+
+  _renderLocationFilters() {
+    const catId = this._currentCategory;
+    const items = this.state.inventory.filter(i => i.category === catId);
+    const locations = [...new Set(items.map(i => i.location).filter(Boolean))].sort();
+    const filterEl = document.getElementById('equip-filters');
+    if (!filterEl || locations.length < 2) return;
+
+    const cur = this._currentLocationFilter;
+    filterEl.innerHTML = `
+      <span class="equip-filter-label">ห้อง/สถานที่:</span>
+      <div class="filter-chip ${cur === '' ? 'active' : ''}"
+           onclick="App._setLocationFilter('')">ทั้งหมด</div>
+      ${locations.map(loc => `
+        <div class="filter-chip ${cur === loc ? 'active' : ''}"
+             onclick="App._setLocationFilter('${escHtml(loc)}')">${escHtml(loc)}</div>
+      `).join('')}`;
+  },
+
+  _setLocationFilter(loc) {
+    this._currentLocationFilter = loc;
+    this._renderLocationFilters();
     this._renderEquipGrid();
   },
 
@@ -513,6 +582,10 @@ window.App = {
     if (!grid) return;
 
     let items = this.state.inventory.filter(i => i.category === catId);
+
+    if (this._currentLocationFilter) {
+      items = items.filter(i => i.location === this._currentLocationFilter);
+    }
 
     if (search) {
       items = items.filter(i =>
@@ -536,11 +609,26 @@ window.App = {
   },
 
   _equipCardHTML(item, cat, idx) {
-    const isRAD   = item.isRAD;
-    const canBook = item.available && this.state.user;
+    const isRAD    = item.isRAD;
+    const inCart   = this.state.cart.some(c => c.item.id === item.id);
     const availBadge = item.available
       ? `<span class="eq-avail-badge available">พร้อมใช้</span>`
       : `<span class="eq-avail-badge unavailable">ไม่ว่าง</span>`;
+
+    const qtyBadge = item.maxQty > 0
+      ? `<div class="eq-qty-badge${item.maxQty <= 2 ? ' low' : ''}">
+           ${item.maxQty <= 2 ? '⚠️' : '✅'} มีในคลัง: ${item.maxQty} ${cat.bookingType === 'timed' ? 'เครื่อง' : 'ชิ้น'}
+         </div>`
+      : '';
+
+    let bookBtnHtml;
+    if (!item.available) {
+      bookBtnHtml = `<button class="btn-book" disabled>ไม่ว่าง</button>`;
+    } else if (inCart) {
+      bookBtnHtml = `<button class="btn-book" style="background:var(--success);" onclick="App._openCart()">✓ ในรายการ</button>`;
+    } else {
+      bookBtnHtml = `<button class="btn-book" onclick="App._addToCart('${escHtml(item.id)}')">+ เพิ่มลงรายการ</button>`;
+    }
 
     return `
       <div class="eq-card card-enter fade-in" style="animation-delay:${idx*0.05}s">
@@ -555,16 +643,12 @@ window.App = {
         <div class="eq-card-body">
           ${item.location ? `<div class="eq-meta"><span class="eq-meta-icon">📍</span><span>${escHtml(item.location)}</span></div>` : ''}
           ${item.detail   ? `<div class="eq-detail">${escHtml(item.detail)}</div>` : ''}
+          ${qtyBadge}
           ${isRAD         ? `<div class="eq-rad-badge">📅 จองข้ามวันได้ (RAD)</div>` : ''}
         </div>
         <div class="eq-card-foot">
           <div class="eq-model">${item.model ? escHtml(item.model) : ''}</div>
-          ${canBook
-            ? `<button class="btn-book" onclick="App.openBookingModal('${escHtml(item.id)}')">จอง</button>`
-            : this.state.user
-              ? `<button class="btn-book" disabled>ไม่ว่าง</button>`
-              : `<button class="btn-book" onclick="App._promptLogin()" style="background:var(--dark);">เข้าสู่ระบบ</button>`
-          }
+          ${bookBtnHtml}
         </div>
       </div>`;
   },
@@ -585,127 +669,355 @@ window.App = {
       </div>`).join('');
   },
 
-  /* ================================================== BOOKING MODAL */
-  openBookingModal(itemId) {
-    if (!this.state.user) { this._promptLogin(); return; }
+  /* ================================================== CART SYSTEM */
+  _addToCart(itemId) {
+    if (!this.state.user) {
+      showToast('info', 'กรุณาเข้าสู่ระบบก่อน', 'คลิกปุ่ม Sign in with Google บน Navbar');
+      return;
+    }
     const item = this.state.inventory.find(i => i.id == itemId);
-    if (!item) { showToast('error', 'ไม่พบอุปกรณ์', ''); return; }
+    if (!item) return;
+    if (this.state.cart.some(c => c.item.id === item.id)) {
+      showToast('info', 'อยู่ในรายการจองแล้ว', item.name);
+      return;
+    }
+    this.state.cart.push({ item });
+    this._renderNavRight();
+    this._renderEquipGrid(); // refresh card buttons
+    showToast('success', 'เพิ่มลงรายการจองแล้ว', `${item.name} — ดูรายการที่ปุ่ม "📋 รายการจอง"`);
+  },
 
-    const cat       = CAT_CONFIG[item.category] || {};
-    const advisors  = (this.state.staffConfig['ADVISORS'] || []);
-    const isTimed   = cat.bookingType === 'timed' && !item.isRAD;
-    const isRAD     = item.isRAD;
-    const isQty     = cat.bookingType === 'quantity';
+  _removeFromCart(itemId) {
+    this.state.cart = this.state.cart.filter(c => c.item.id != itemId);
+    this._renderNavRight();
+    // Refresh cart modal
+    const modal = document.getElementById('modal-box');
+    if (modal && modal.querySelector('.cart-modal-content')) {
+      this._renderCartModal();
+    }
+    // Refresh grid if on equipment page
+    if (document.getElementById('equip-grid')) this._renderEquipGrid();
+  },
 
-    const advisorOptions = advisors.map(a =>
+  _openCart() {
+    if (this.state.cart.length === 0) {
+      showToast('info', 'รายการจองว่างอยู่', 'เพิ่มอุปกรณ์จากหน้ารายการก่อน');
+      return;
+    }
+    if (!this.state.user) {
+      showToast('info', 'กรุณาเข้าสู่ระบบก่อน', '');
+      return;
+    }
+    this._renderCartModal();
+    document.getElementById('modal-overlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  },
+
+  _renderCartModal() {
+    const box      = document.getElementById('modal-box');
+    const advisors = this.state.staffConfig['ADVISORS'] || [];
+    const today    = todayISO();
+    const maxDate  = dateAddDays(today, 180);
+
+    const advisorOpts = advisors.map(a =>
       `<option value="${escHtml(a.email)}">${escHtml(a.name)}</option>`
     ).join('');
 
-    const today   = todayISO();
-    const minDate = isTimed ? this._minBookingDate() : today;
-    const maxDate = dateAddDays(today, 180);
+    const itemsHtml = this.state.cart.map((entry, idx) => {
+      const item    = entry.item;
+      const cat     = CAT_CONFIG[item.category] || {};
+      const isTimed = cat.bookingType === 'timed' && !item.isRAD;
+      const isRAD   = item.isRAD;
+      const isChemical = item.category === 'chemical';
+      const itemKey = `ci_${idx}`;
+      const minDate = isTimed ? this._minBookingDate() : today;
 
-    let dateFields = '';
-    if (isTimed) {
-      dateFields = `
-        <div class="form-group">
-          <label class="form-label">วันที่จอง <span class="required">*</span></label>
-          <input type="date" class="form-input" id="bf-date" min="${minDate}" max="${maxDate}"
-            onchange="App._onDateChange(this.value)">
-          <div class="form-hint">จองล่วงหน้าอย่างน้อย 3 วันทำการ • จ–ศ เท่านั้น</div>
-        </div>
-        <div class="form-group" id="bf-slots-group" style="display:none;">
-          <label class="form-label">เลือกช่วงเวลา <span class="required">*</span></label>
-          <div class="time-slots" id="bf-slots"></div>
+      let dateFields = '';
+      if (isTimed) {
+        dateFields = `
+          <div class="form-group" style="margin-bottom:10px;">
+            <label class="form-label" style="font-size:12px;">วันที่จอง <span class="required">*</span></label>
+            <input type="date" class="form-input" id="${itemKey}_date" min="${minDate}" max="${maxDate}"
+              onchange="App._cartDateChange('${itemKey}', this.value)">
+            <div class="form-hint">ล่วงหน้าอย่างน้อย 3 วันทำการ • จ–ศ เท่านั้น</div>
+          </div>
+          <div id="${itemKey}_slots_group" style="display:none;margin-bottom:10px;">
+            <label class="form-label" style="font-size:12px;">ช่วงเวลา <span class="required">*</span></label>
+            <div class="time-slots" id="${itemKey}_slots" style="flex-wrap:wrap;gap:6px;"></div>
+          </div>`;
+      } else if (isRAD) {
+        dateFields = `
+          <div class="info-box accent" style="margin-bottom:10px;padding:10px 12px;font-size:12px;">📅 จองข้ามวันได้</div>
+          <div class="form-row" style="margin-bottom:0;">
+            <div class="form-group" style="margin-bottom:10px;">
+              <label class="form-label" style="font-size:12px;">วันที่เริ่ม <span class="required">*</span></label>
+              <input type="date" class="form-input" id="${itemKey}_start" min="${today}" max="${maxDate}">
+            </div>
+            <div class="form-group" style="margin-bottom:10px;">
+              <label class="form-label" style="font-size:12px;">วันที่สิ้นสุด <span class="required">*</span></label>
+              <input type="date" class="form-input" id="${itemKey}_end" min="${today}" max="${maxDate}">
+            </div>
+          </div>`;
+      } else {
+        dateFields = `
+          <div class="form-row" style="margin-bottom:0;">
+            <div class="form-group" style="margin-bottom:10px;">
+              <label class="form-label" style="font-size:12px;">วันที่รับ <span class="required">*</span></label>
+              <input type="date" class="form-input" id="${itemKey}_start" min="${today}" max="${maxDate}">
+            </div>
+            <div class="form-group" style="margin-bottom:10px;">
+              <label class="form-label" style="font-size:12px;">วันที่คืน <span class="required">*</span></label>
+              <input type="date" class="form-input" id="${itemKey}_end" min="${today}" max="${maxDate}">
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label class="form-label" style="font-size:12px;">จำนวนที่ต้องการ <span class="required">*</span>
+              ${item.maxQty > 0 ? `<span style="font-weight:400;color:var(--text-3);">(มีในคลัง: ${item.maxQty} ชิ้น)</span>` : ''}
+            </label>
+            <input type="number" class="form-input" id="${itemKey}_qty" min="1" max="${item.maxQty || 9999}" value="1" placeholder="จำนวน">
+          </div>
+          ${isChemical ? `
+            <div class="cart-section-divider">รายละเอียดสารเคมี</div>
+            <div class="chem-fields-grid" style="margin-bottom:10px;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:12px;">ปริมาณ (Amount)</label>
+                <input type="text" class="form-input" id="${itemKey}_amount" placeholder="เช่น 100 mL, 50 g">
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:12px;">เกรด (Grade)</label>
+                <select class="form-select" id="${itemKey}_grade">
+                  <option value="">-- เลือกเกรด --</option>
+                  <option value="Technical Grade">Technical Grade</option>
+                  <option value="Laboratory Grade (LR)">Laboratory Grade (LR)</option>
+                  <option value="Analytical Grade (AR)">Analytical Grade (AR)</option>
+                  <option value="HPLC Grade">HPLC Grade</option>
+                  <option value="Food Grade">Food Grade</option>
+                  <option value="Pharmaceutical Grade (BP/USP)">Pharmaceutical Grade (BP/USP)</option>
+                  <option value="Research Grade">Research Grade</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:12px;">ความเข้มข้น (Concentration)</label>
+                <input type="text" class="form-input" id="${itemKey}_conc" placeholder="เช่น 98%, 1 M, 0.1 N">
+              </div>
+            </div>
+          ` : ''}`;
+      }
+
+      return `
+        <div class="cart-item-section" id="cart-item-${itemKey}">
+          <div class="cart-item-header">
+            <div>
+              <div class="cart-item-name">
+                <span style="background:${cat.bgColor};color:${cat.textColor};padding:4px 8px;border-radius:6px;font-size:16px;">${cat.icon}</span>
+                ${escHtml(item.name)}
+              </div>
+              ${item.location ? `<div class="cart-item-qty-info">📍 ${escHtml(item.location)}${item.maxQty > 0 ? ` · มีในคลัง: ${item.maxQty} ${cat.bookingType === 'timed' ? 'เครื่อง' : 'ชิ้น'}` : ''}</div>` : ''}
+            </div>
+            <button class="btn-remove-cart" onclick="App._removeFromCart('${escHtml(item.id)}')">ลบ ✕</button>
+          </div>
+          ${dateFields}
         </div>`;
-    } else if (isRAD) {
-      dateFields = `
-        <div class="info-box accent">📅 อุปกรณ์นี้รองรับการจองข้ามวัน (Reserve Across the Day) — เลือกช่วงวันที่ต้องการ</div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">วันที่เริ่ม <span class="required">*</span></label>
-            <input type="date" class="form-input" id="bf-start-date" min="${today}" max="${maxDate}">
+    }).join('');
+
+    box.innerHTML = `
+      <div class="cart-modal-content">
+        <div class="modal-head">
+          <div class="modal-head-icon" style="background:var(--accent-light);color:var(--accent);font-size:20px;">📋</div>
+          <div class="modal-head-info">
+            <div class="modal-title">รายการจอง (${this.state.cart.length} รายการ)</div>
+            <div class="modal-subtitle">กรอกรายละเอียดแล้วกดยืนยันเพื่อส่งคำขอ</div>
           </div>
+          <button class="modal-close" onclick="App.closeModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="cart-section-divider">ข้อมูลร่วม</div>
+
           <div class="form-group">
-            <label class="form-label">วันที่สิ้นสุด <span class="required">*</span></label>
-            <input type="date" class="form-input" id="bf-end-date" min="${today}" max="${maxDate}">
+            <label class="form-label">อาจารย์ที่ปรึกษา <span class="required">*</span></label>
+            <select class="form-select" id="cart-advisor">
+              <option value="">-- เลือกอาจารย์ที่ปรึกษา --</option>
+              ${advisorOpts}
+            </select>
           </div>
-        </div>`;
-    } else {
-      // Quantity-based
-      dateFields = `
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">วันที่รับ <span class="required">*</span></label>
-            <input type="date" class="form-input" id="bf-start-date" min="${today}" max="${maxDate}">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">วิชา / โครงการ</label>
+              <select class="form-select" id="cart-course">
+                <option value="ทั่วไป">ทั่วไป</option>
+                <option value="TEAM PROJECT 2">TEAM PROJECT 2</option>
+                <option value="ปฏิบัติการวิศวกรรมเคมี">ปฏิบัติการวิศวกรรมเคมี</option>
+                <option value="การออกแบบกระบวนการเคมี">การออกแบบกระบวนการเคมี</option>
+                <option value="Senior Project / โครงงานนักศึกษา">Senior Project / โครงงานนักศึกษา</option>
+                <option value="งานวิจัย">งานวิจัย</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">หมายเหตุ (ถ้ามี)</label>
+              <textarea class="form-textarea" id="cart-note" placeholder="รายละเอียดเพิ่มเติม..." style="min-height:44px;"></textarea>
+            </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">วันที่คืน <span class="required">*</span></label>
-            <input type="date" class="form-input" id="bf-end-date" min="${today}" max="${maxDate}">
+
+          <div class="cart-section-divider">รายละเอียดแต่ละรายการ</div>
+          ${itemsHtml}
+        </div>
+        <div class="modal-foot" style="justify-content:space-between;">
+          <button class="btn btn-secondary" onclick="App._clearCart()">
+            🗑️ ล้างรายการ
+          </button>
+          <div style="display:flex;gap:10px;">
+            <button class="btn btn-secondary" onclick="App.closeModal()">ยกเลิก</button>
+            <button class="btn btn-primary" id="cart-submit-btn" onclick="App._submitCart()">
+              ✅ ยืนยันการจอง (${this.state.cart.length})
+            </button>
           </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">จำนวนที่ต้องการ <span class="required">*</span></label>
-          <input type="number" class="form-input" id="bf-qty" min="1" value="1" placeholder="จำนวน">
-        </div>`;
-    }
-
-    const modalHTML = `
-      <div class="modal-head">
-        <div class="modal-head-icon" style="background:${cat.bgColor};color:${cat.textColor};">${cat.icon}</div>
-        <div class="modal-head-info">
-          <div class="modal-title">${escHtml(item.name)}</div>
-          <div class="modal-subtitle">${item.id ? item.id + ' • ' : ''}${escHtml(item.location || '')}</div>
-        </div>
-        <button class="modal-close" onclick="App.closeModal()">✕</button>
-      </div>
-      <div class="modal-body">
-        ${item.detail ? `<div class="info-box" style="margin-bottom:20px;">${escHtml(item.detail)}</div>` : ''}
-
-        ${dateFields}
-
-        <div class="form-group">
-          <label class="form-label">อาจารย์ที่ปรึกษา <span class="required">*</span></label>
-          <select class="form-select" id="bf-advisor">
-            <option value="">-- เลือกอาจารย์ที่ปรึกษา --</option>
-            ${advisorOptions}
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">วิชา / โครงการ</label>
-          <select class="form-select" id="bf-course">
-            <option value="ทั่วไป">ทั่วไป</option>
-            <option value="TEAM PROJECT 2">TEAM PROJECT 2</option>
-            <option value="ปฏิบัติการวิศวกรรมเคมี">ปฏิบัติการวิศวกรรมเคมี</option>
-            <option value="การออกแบบกระบวนการเคมี">การออกแบบกระบวนการเคมี</option>
-            <option value="Senior Project / โครงงานนักศึกษา">Senior Project / โครงงานนักศึกษา</option>
-            <option value="งานวิจัย">งานวิจัย</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">หมายเหตุ (ถ้ามี)</label>
-          <textarea class="form-textarea" id="bf-note" placeholder="รายละเอียดเพิ่มเติม..."></textarea>
-        </div>
-      </div>
-      <div class="modal-foot">
-        <button class="btn btn-secondary" onclick="App.closeModal()">ยกเลิก</button>
-        <button class="btn btn-primary" id="bf-submit-btn" onclick="App._submitBooking('${item.id}', '${item.category}', '${item.name}', '${isTimed ? 'timed' : isRAD ? 'rad' : 'qty'}')">
-          ยืนยันการจอง
-        </button>
       </div>`;
 
-    this.openModal(modalHTML);
-
-    // Pre-fill advisor if user IS an advisor
-    if (this.state.user?.role === 'ADVISORS') {
-      const sel = document.getElementById('bf-advisor');
+    // Pre-fill advisor if user is an advisor
+    const u = this.state.user;
+    if (u?.role === 'ADVISORS') {
+      const sel = document.getElementById('cart-advisor');
       if (sel) {
-        const opt = Array.from(sel.options).find(o => o.value === this.state.user.email);
+        const opt = Array.from(sel.options).find(o => o.value === u.email);
         if (opt) opt.selected = true;
       }
     }
+  },
+
+  _cartDateChange(itemKey, dateStr) {
+    const slotsGroup = document.getElementById(`${itemKey}_slots_group`);
+    const slotsEl    = document.getElementById(`${itemKey}_slots`);
+    if (!slotsGroup || !slotsEl) return;
+
+    if (!dateStr) { slotsGroup.style.display = 'none'; return; }
+    const d   = new Date(dateStr);
+    const day = d.getDay();
+    if (day === 0 || day === 6 || this.state.holidays.has(dateStr)) {
+      slotsGroup.style.display = 'none';
+      showToast('warning', 'วันที่เลือกไม่ถูกต้อง', 'กรุณาเลือกวันจันทร์–ศุกร์ ที่ไม่ใช่วันหยุด');
+      return;
+    }
+    slotsGroup.style.display = '';
+    const slots = [];
+    for (let h = 9; h <= 14; h++)
+      slots.push({ start:`${h}:00`, end:`${h+2}:00`, label:`${pad(h)}:00 – ${pad(h+2)}:00 (2 ชม.)` });
+    for (let h = 9; h <= 15; h++)
+      slots.push({ start:`${h}:00`, end:`${h+1}:00`, label:`${pad(h)}:00 – ${pad(h+1)}:00 (1 ชม.)` });
+    slots.sort((a,b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end));
+    slotsEl.innerHTML = slots.map(s => `
+      <div class="time-slot" data-start="${dateStr}T${pad2(s.start)}:00" data-end="${dateStr}T${pad2(s.end)}:00"
+           onclick="App._cartSelectSlot(this, '${itemKey}')">${s.label}</div>`).join('');
+  },
+
+  _cartSelectSlot(el, itemKey) {
+    document.querySelectorAll(`#${itemKey}_slots .time-slot`).forEach(s => s.classList.remove('selected'));
+    el.classList.add('selected');
+  },
+
+  async _submitCart() {
+    const u = this.state.user;
+    if (!u) return;
+    const btn     = document.getElementById('cart-submit-btn');
+    const advisor = document.getElementById('cart-advisor')?.value;
+    const course  = document.getElementById('cart-course')?.value || 'ทั่วไป';
+    const note    = document.getElementById('cart-note')?.value || '';
+
+    if (!advisor) { showToast('warning', 'กรุณาเลือกอาจารย์ที่ปรึกษา', ''); return; }
+
+    // Collect per-item data and validate
+    const submissions = [];
+    for (let idx = 0; idx < this.state.cart.length; idx++) {
+      const { item } = this.state.cart[idx];
+      const cat     = CAT_CONFIG[item.category] || {};
+      const isTimed = cat.bookingType === 'timed' && !item.isRAD;
+      const isRAD   = item.isRAD;
+      const isChemical = item.category === 'chemical';
+      const key     = `ci_${idx}`;
+      let start = '', end = '', quantity = '', chemDetail = '';
+
+      if (isTimed) {
+        const slot = document.querySelector(`#${key}_slots .time-slot.selected`);
+        if (!slot) { showToast('warning', `กรุณาเลือกช่วงเวลาสำหรับ "${item.name}"`, ''); return; }
+        start = slot.dataset.start;
+        end   = slot.dataset.end;
+      } else if (isRAD) {
+        start = document.getElementById(`${key}_start`)?.value;
+        end   = document.getElementById(`${key}_end`)?.value;
+        if (!start || !end) { showToast('warning', `กรุณาเลือกวันที่สำหรับ "${item.name}"`, ''); return; }
+      } else {
+        start    = document.getElementById(`${key}_start`)?.value;
+        end      = document.getElementById(`${key}_end`)?.value;
+        quantity = document.getElementById(`${key}_qty`)?.value || '1';
+        if (!start || !end) { showToast('warning', `กรุณาเลือกวันที่สำหรับ "${item.name}"`, ''); return; }
+        if (isChemical) {
+          const amount = document.getElementById(`${key}_amount`)?.value || '';
+          const grade  = document.getElementById(`${key}_grade`)?.value  || '';
+          const conc   = document.getElementById(`${key}_conc`)?.value   || '';
+          if (amount || grade || conc) {
+            chemDetail = [
+              amount ? `ปริมาณ: ${amount}` : '',
+              grade  ? `Grade: ${grade}`   : '',
+              conc   ? `ความเข้มข้น: ${conc}` : ''
+            ].filter(Boolean).join(' | ');
+          }
+        }
+      }
+
+      submissions.push({ item, category: item.category, start, end, quantity,
+        bookingNote: chemDetail ? `[${chemDetail}] ${note}`.trim() : note });
+    }
+
+    btn.classList.add('btn-loading');
+    btn.disabled = true;
+    let successCount = 0;
+    const errors = [];
+
+    for (const s of submissions) {
+      try {
+        const result = await apiPost({
+          action: 'submitBooking',
+          email:  u.email,
+          name:   u.name,
+          category:    s.category,
+          itemId:      s.item.id,
+          itemName:    s.item.name,
+          course,
+          quantity:    s.quantity,
+          start:       s.start,
+          end:         s.end,
+          note:        s.bookingNote,
+          advisorEmail: advisor
+        });
+        if (result.success) successCount++;
+        else errors.push(`${s.item.name}: ${result.error || 'ผิดพลาด'}`);
+      } catch (e) {
+        errors.push(`${s.item.name}: ${e.message}`);
+      }
+    }
+
+    btn.classList.remove('btn-loading');
+    btn.disabled = false;
+
+    if (successCount > 0) {
+      this.state.cart     = [];
+      this.state.bookings = [];
+      this.closeModal();
+      this._renderNavRight();
+      showToast('success', `ส่งคำขอจองสำเร็จ ${successCount} รายการ!`, errors.length > 0 ? `ไม่สำเร็จ ${errors.length} รายการ` : '');
+    }
+    if (errors.length > 0 && successCount === 0) {
+      showToast('error', 'ส่งคำขอไม่สำเร็จ', errors.join('\n'));
+    }
+  },
+
+  _clearCart() {
+    if (!confirm('ล้างรายการจองทั้งหมด?')) return;
+    this.state.cart = [];
+    this.closeModal();
+    this._renderNavRight();
+    if (document.getElementById('equip-grid')) this._renderEquipGrid();
+    showToast('info', 'ล้างรายการจองแล้ว', '');
   },
 
   _minBookingDate() {
@@ -722,106 +1034,121 @@ window.App = {
     return d.toISOString().split('T')[0];
   },
 
-  _onDateChange(dateStr) {
-    const slotsGroup = document.getElementById('bf-slots-group');
-    const slotsEl    = document.getElementById('bf-slots');
-    if (!slotsGroup || !slotsEl) return;
-
-    if (!dateStr) { slotsGroup.style.display = 'none'; return; }
-
-    const d   = new Date(dateStr);
-    const day = d.getDay();
-    if (day === 0 || day === 6 || this.state.holidays.has(dateStr)) {
-      slotsGroup.style.display = 'none';
-      showToast('warning', 'วันที่เลือกไม่ถูกต้อง', 'กรุณาเลือกวันจันทร์–ศุกร์ที่ไม่ใช่วันหยุด');
-      return;
-    }
-
-    slotsGroup.style.display = '';
-    // Generate 1h slots from 09:00–16:00 and 2h slots
-    const slots = [];
-    for (let h = 9; h <= 14; h++) {
-      slots.push({ start: `${h}:00`, end: `${h+2}:00`, label: `${pad(h)}:00 – ${pad(h+2)}:00 (2 ชม.)` });
-    }
-    for (let h = 9; h <= 15; h++) {
-      slots.push({ start: `${h}:00`, end: `${h+1}:00`, label: `${pad(h)}:00 – ${pad(h+1)}:00 (1 ชม.)` });
-    }
-    slots.sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end));
-
-    slotsEl.innerHTML = slots.map(s => `
-      <div class="time-slot" data-start="${dateStr}T${pad2(s.start)}:00" data-end="${dateStr}T${pad2(s.end)}:00"
-           onclick="App._selectSlot(this)">${s.label}</div>`).join('');
+  /* ================================================== NOTIFICATIONS */
+  async _loadNotifData() {
+    const u = this.state.user;
+    if (!u) return;
+    try {
+      if (this._isStaff()) {
+        if (this._allBookings.length === 0) {
+          this._allBookings = await apiGet('getAllBookings');
+        }
+        this._notifCount = this._allBookings.filter(b => this._canApprove(b)).length;
+      } else {
+        if (this.state.bookings.length === 0) {
+          this.state.bookings = await apiGet('getMyBookings', { email: u.email });
+        }
+        const seen = JSON.parse(localStorage.getItem('kcib_notif_seen') || '{}');
+        this._notifCount = this.state.bookings.filter(b =>
+          b.BookingID &&
+          [STATUS_OK, STATUS_REJ].includes(b.Status) &&
+          seen[b.BookingID] !== b.Status
+        ).length;
+      }
+      this._updateNotifBadge();
+    } catch (e) { /* silent fail */ }
   },
 
-  _selectSlot(el) {
-    document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('selected'));
-    el.classList.add('selected');
+  _updateNotifBadge() {
+    const badge = document.getElementById('notif-badge');
+    const count = this._notifCount || 0;
+    if (badge) {
+      badge.textContent = count > 99 ? '99+' : count;
+      badge.style.display = count > 0 ? 'flex' : 'none';
+    }
   },
 
-  async _submitBooking(itemId, category, itemName, bookingType) {
-    const btn = document.getElementById('bf-submit-btn');
-    const u   = this.state.user;
+  _markNotifsRead() {
+    if (!this._isStaff()) {
+      const seen = {};
+      this.state.bookings.forEach(b => { if (b.BookingID) seen[b.BookingID] = b.Status; });
+      localStorage.setItem('kcib_notif_seen', JSON.stringify(seen));
+    }
+    this._notifCount = 0;
+    this._updateNotifBadge();
+  },
+
+  _toggleNotifDropdown(e) {
+    e.stopPropagation();
+    const existing = document.getElementById('notif-dropdown');
+    if (existing) { existing.remove(); return; }
+
+    const u = this.state.user;
     if (!u) return;
 
-    // Gather fields
-    const advisor  = document.getElementById('bf-advisor')?.value;
-    const course   = document.getElementById('bf-course')?.value || 'ทั่วไป';
-    const note     = document.getElementById('bf-note')?.value || '';
-    let   start    = '';
-    let   end      = '';
-    let   quantity = '';
+    const isStaff = this._isStaff();
+    let items = [];
 
-    if (bookingType === 'timed') {
-      const selected = document.querySelector('.time-slot.selected');
-      if (!selected) { showToast('warning', 'กรุณาเลือกช่วงเวลา', ''); return; }
-      start = selected.dataset.start;
-      end   = selected.dataset.end;
-    } else if (bookingType === 'rad' || bookingType === 'qty') {
-      start = document.getElementById('bf-start-date')?.value;
-      end   = document.getElementById('bf-end-date')?.value;
-      if (bookingType === 'qty') {
-        quantity = document.getElementById('bf-qty')?.value || '1';
-      }
+    if (isStaff) {
+      items = this._allBookings.filter(b => this._canApprove(b)).slice(0, 10).map(b => ({
+        icon: '⏳',
+        title: b.ItemName || '-',
+        desc:  `${b.Name || '-'} · ${b.Status || '-'}`,
+        action: () => { this.navigate('dashboard'); },
+        unread: true
+      }));
+    } else {
+      const seen = JSON.parse(localStorage.getItem('kcib_notif_seen') || '{}');
+      items = this.state.bookings.filter(b =>
+        b.BookingID && [STATUS_OK, STATUS_REJ].includes(b.Status) && seen[b.BookingID] !== b.Status
+      ).slice(0, 10).map(b => ({
+        icon: b.Status === STATUS_OK ? '✅' : '❌',
+        title: b.ItemName || '-',
+        desc:  b.Status || '-',
+        action: () => { this.navigate('my-bookings'); },
+        unread: true
+      }));
     }
 
-    // Validate
-    if (!advisor)   { showToast('warning', 'กรุณาเลือกอาจารย์ที่ปรึกษา', ''); return; }
-    if (!start)     { showToast('warning', 'กรุณาเลือกวันเวลาเริ่มต้น', ''); return; }
-    if (!end && bookingType !== 'timed') { showToast('warning', 'กรุณาเลือกวันสิ้นสุด', ''); return; }
+    const dropdown = document.createElement('div');
+    dropdown.id = 'notif-dropdown';
+    dropdown.className = 'notif-dropdown';
+    dropdown.innerHTML = `
+      <div class="notif-dropdown-head">
+        <span class="notif-dropdown-title">🔔 การแจ้งเตือน</span>
+        ${items.length > 0 ? `<button class="notif-mark-read" onclick="App._markNotifsRead();document.getElementById('notif-dropdown')?.remove();">อ่านทั้งหมด</button>` : ''}
+      </div>
+      <div class="notif-list">
+        ${items.length > 0 ? items.map((n, i) => `
+          <div class="notif-item ${n.unread ? 'unread' : ''}" onclick="notifItems[${i}]()">
+            <div class="notif-item-icon">${n.icon}</div>
+            <div class="notif-item-body">
+              <div class="notif-item-title">${escHtml(n.title)}</div>
+              <div class="notif-item-desc">${escHtml(n.desc)}</div>
+            </div>
+          </div>`).join('') : `<div class="notif-empty">ไม่มีการแจ้งเตือนใหม่</div>`}
+      </div>`;
 
-    // Disable button
-    btn.classList.add('btn-loading');
-    btn.disabled = true;
+    document.body.appendChild(dropdown);
 
-    try {
-      const result = await apiPost({
-        action:      'submitBooking',
-        email:       u.email,
-        name:        u.name,
-        category,
-        itemId,
-        itemName,
-        course,
-        quantity,
-        start,
-        end,
-        note,
-        advisorEmail: advisor
-      });
-
-      if (result.success) {
-        this.closeModal();
-        showToast('success', 'ส่งคำขอจองสำเร็จ!', `BookingID: ${result.bookingId}`);
-        this.state.bookings = []; // Clear cache
-      } else {
-        throw new Error(result.error || 'เกิดข้อผิดพลาด');
-      }
-    } catch (e) {
-      showToast('error', 'ส่งคำขอไม่สำเร็จ', e.message);
-    } finally {
-      btn.classList.remove('btn-loading');
-      btn.disabled = false;
+    // Position below the notif button
+    const btn = document.getElementById('notif-btn');
+    if (btn) {
+      const rect = btn.getBoundingClientRect();
+      dropdown.style.top  = (rect.bottom + 8) + 'px';
+      dropdown.style.right = (window.innerWidth - rect.right) + 'px';
     }
+
+    // Wire up click handlers
+    const notifItems = items.map(n => () => {
+      dropdown.remove();
+      n.action();
+    });
+    window.notifItems = notifItems;
+
+    setTimeout(() => {
+      document.addEventListener('click', () => dropdown.remove(), { once: true });
+    }, 0);
   },
 
   /* ================================================== MY BOOKINGS */
@@ -872,6 +1199,14 @@ window.App = {
     try {
       if (this.state.bookings.length === 0) {
         this.state.bookings = await apiGet('getMyBookings', { email: u.email });
+        // Recompute notification count with fresh data
+        if (!this._isStaff()) {
+          const seen = JSON.parse(localStorage.getItem('kcib_notif_seen') || '{}');
+          this._notifCount = this.state.bookings.filter(b =>
+            b.BookingID && [STATUS_OK, STATUS_REJ].includes(b.Status) && seen[b.BookingID] !== b.Status
+          ).length;
+          this._updateNotifBadge();
+        }
       }
       this._renderBookingsList();
     } catch (e) {
@@ -1079,6 +1414,9 @@ window.App = {
       this._renderDashStats();
       this._renderDashTabContent('pending');
       document.getElementById('dash-tabs').style.display = '';
+      // Recompute staff notification count
+      this._notifCount = this._allBookings.filter(b => this._canApprove(b)).length;
+      this._updateNotifBadge();
     } catch (e) {
       showToast('error', 'โหลด dashboard ไม่สำเร็จ', e.message);
     }

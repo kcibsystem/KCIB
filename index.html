@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" href="logo.png">
 
   <!-- CSP Fallback -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client; frame-src https://accounts.google.com; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://accounts.google.com https://generativelanguage.googleapis.com;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client; frame-src https://accounts.google.com https://www.google.com; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://accounts.google.com https://generativelanguage.googleapis.com;">
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -54,7 +54,6 @@
       <img src="logo.png" alt="KCIB logo" class="nav-logo-img">
       <div class="nav-brand-text">
         <span class="nav-brand-name">KCIB</span>
-        <span class="nav-brand-sub">ChE Booking</span>
       </div>
     </a>
 
@@ -66,6 +65,7 @@
       <a class="nav-link" data-page="chemical"  href="#chemical"   onclick="App.navigate('chemical'); navClose();return false;">สารเคมี</a>
       <a class="nav-link auth-only" data-page="my-bookings" href="#my-bookings" onclick="App.navigate('my-bookings');navClose();return false;" style="display:none;">การจองของฉัน</a>
       <a class="nav-link staff-only" data-page="dashboard" href="#dashboard" onclick="App.navigate('dashboard');navClose();return false;" style="display:none;">แดชบอร์ด</a>
+      <a class="nav-link" href="#" id="mobile-cart-link" onclick="navClose();App._openCart();return false;" style="display:none;">📋 รายการจอง</a>
     </div>
 
     <div class="nav-right" id="nav-right">
@@ -95,18 +95,42 @@
 
 <!-- ===================== FOOTER ===================== -->
 <footer id="site-footer">
-  <div class="footer-inner">
-    <div class="footer-brand">
-      <img src="logo.png" alt="KCIB" class="footer-logo">
-      <div>
-        <div class="footer-brand-name">KCIB</div>
-        <div class="footer-brand-sub">KMITL ChE Inventory &amp; Booking</div>
+  <div class="footer-top">
+    <div class="footer-top-inner">
+      <div class="footer-col footer-col-brand">
+        <div class="footer-brand">
+          <img src="logo.png" alt="KCIB" class="footer-logo">
+          <div>
+            <div class="footer-brand-name">KCIB</div>
+            <div class="footer-brand-sub">KMITL ChE Inventory &amp; Booking</div>
+          </div>
+        </div>
+        <div class="footer-info">
+          <div>ภาควิชาวิศวกรรมเคมี คณะวิศวกรรมศาสตร์</div>
+          <div>สถาบันเทคโนโลยีพระจอมเกล้าเจ้าคุณทหารลาดกระบัง</div>
+          <div style="margin-top:6px;color:#9ca3af;font-size:13px;">ห้องสำนักงานภาควิชา ชั้น 1 อาคาร 12 | จ–ศ 08:30–16:30 น.</div>
+        </div>
+        <div class="footer-social">
+          <a class="footer-social-link" href="https://www.facebook.com/chekmitl" target="_blank" rel="noopener">
+            <span>📘</span> Facebook
+          </a>
+          <a class="footer-social-link" href="https://sites.google.com/view/chekmitl-th" target="_blank" rel="noopener">
+            <span>🌐</span> เว็บไซต์ภาควิชา
+          </a>
+        </div>
+      </div>
+      <div class="footer-col footer-col-map">
+        <div class="footer-map-label">📍 ที่ตั้ง CCA Building</div>
+        <div class="footer-map-wrap">
+          <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3875.8702205638333!2d100.77020337516284!3d13.72630609788302!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x311d67055eca3a43%3A0x7de32ac49a42870b!2sCCA!5e0!3m2!1sen!2sth!4v1776336034263!5m2!1sen!2sth"
+            width="100%" height="220" style="border:0;border-radius:12px;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        </div>
       </div>
     </div>
-    <div class="footer-info">
-      <div>ภาควิชาวิศวกรรมเคมี คณะวิศวกรรมศาสตร์</div>
-      <div>สถาบันเทคโนโลยีพระจอมเกล้าเจ้าคุณทหารลาดกระบัง</div>
-      <div style="margin-top:6px;color:#9ca3af;font-size:13px;">ห้องสำนักงานภาควิชา ชั้น 1 อาคาร 12 | จ–ศ 08:30–16:30 น.</div>
+  </div>
+  <div class="footer-bottom">
+    <div class="footer-bottom-inner">
+      <div style="font-size:12px;color:#6b7280;">© 2025 KCIB — ภาควิชาวิศวกรรมเคมี สจล.</div>
     </div>
   </div>
 </footer>
