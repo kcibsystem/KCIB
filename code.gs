@@ -62,12 +62,7 @@ function colIdx_(headers, name) { return headers.indexOf(name); }
 function doGet(e) {
   const p = e.parameter || {};
 
-  // 1. ระบบ Chatbot
-  if (p.action === "chat") {
-    return chatWithGemini(p.message);
-  }
-
-  // 2. Email approval link handler
+  // Email approval link handler
   if (p.action === "process_email") {
     return handleEmailAction(p.type, p.bookingId);
   }
@@ -91,48 +86,11 @@ function doPost(e) {
     switch (data.action) {
       case "submitBooking": return jsonOut(submitBooking(data));
       case "cancelBooking": return jsonOut(cancelBooking(data));
-      case "chat":          return chatWithGemini(data.message);
-      default:              return jsonOut({ error: "Invalid action: " + data.action });
+default:              return jsonOut({ error: "Invalid action: " + data.action });
     }
   } catch (err) {
     Logger.log("doPost error: " + err.stack);
     return jsonOut({ error: err.message });
-  }
-}
-
-// ===================== GEMINI AI FUNCTION =====================
-function chatWithGemini(userMessage) {
-  const API_KEY = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
-  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + API_KEY;
-
-  const payload = {
-    system_instruction: {
-      parts: [{ text: "คุณคือผู้ช่วย AI ของระบบ KCIB (KMITL ChE Inventory & Booking) ภาควิชาวิศวกรรมเคมี สจล. ให้ข้อมูลที่สุภาพ เป็นกันเอง และช่วยเหลือผู้ใช้งาน" }]
-    },
-    contents: [
-      { role: "user", parts: [{ text: userMessage }] }
-    ],
-    generationConfig: { temperature: 0.7 }
-  };
-
-  const options = {
-    method: "post",
-    contentType: "application/json",
-    payload: JSON.stringify(payload),
-    muteHttpExceptions: true
-  };
-
-  try {
-    const response = UrlFetchApp.fetch(url, options);
-    const data = JSON.parse(response.getContentText());
-    if (data.candidates && data.candidates[0].content.parts[0].text) {
-      const reply = data.candidates[0].content.parts[0].text;
-      return jsonOut({ status: 'success', reply: reply });
-    } else {
-      throw new Error("Gemini Error: " + (data.error ? data.error.message : "Unknown error"));
-    }
-  } catch (err) {
-    return jsonOut({ status: 'error', message: err.toString() });
   }
 }
 
