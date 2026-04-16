@@ -38,7 +38,7 @@
   --radius-xl:     28px;
   --nav-h:         68px;
   --trans:         all 0.28s ease;
-  --font-display:  'Syne', 'Sarabun', system-ui, sans-serif;
+  --font-display:  'Sarabun', system-ui, sans-serif;
 }
 
 /* ===================== RESET & BASE ===================== */
@@ -306,6 +306,37 @@ input, select, textarea { font-family: inherit; }
 .dropdown-item:hover { background: var(--bg); }
 .dropdown-item.danger { color: var(--danger); }
 .dropdown-divider { height: 1px; background: var(--border); margin: 4px 0; }
+
+/* ===================== LANG TOGGLE ===================== */
+.lang-toggle {
+  display: flex;
+  align-items: center;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.lang-btn {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,.55);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: var(--trans);
+  font-family: inherit;
+}
+.lang-btn:hover { color: rgba(255,255,255,.85); }
+.lang-btn.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(255,109,56,.35);
+}
 
 /* Mobile notif bell — always hidden on desktop regardless of JS */
 @media (min-width: 769px) {
@@ -1639,6 +1670,7 @@ table.dash-table {
     z-index: 1001;
   }
   .nav-hamburger { display: flex; }
+  .lang-toggle { order: -1; margin-right: 4px; }
 
   /* Sign-in / user card inside mobile drawer */
   .mobile-signin-slot {

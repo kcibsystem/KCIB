@@ -233,8 +233,8 @@ window.App = {
     const cart = this.state.cart;
 
     const cartBtnHtml = cart.length > 0
-      ? `<button class="cart-btn" onclick="App._openCart()" title="รายการจอง">
-           📋 รายการจอง
+      ? `<button class="cart-btn" onclick="App._openCart()" title="${t('cart.title')}">
+           📋 ${t('cart.title')}
            <span class="cart-count">${cart.length}</span>
          </button>`
       : '';
@@ -270,7 +270,7 @@ window.App = {
               <div style="font-size:14px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.givenName||u.name.split(' ')[0]}</div>
               <div style="font-size:11px;color:var(--accent);font-weight:600;">${u.roleLabel}</div>
             </div>
-            <button onclick="navClose();App.logout();" class="mobile-logout-btn">ออกจากระบบ</button>
+            <button onclick="navClose();App.logout();" class="mobile-logout-btn">${t('logout')}</button>
           </div>`;
       }
 
@@ -304,7 +304,7 @@ window.App = {
     const mobileCartLink = document.getElementById('mobile-cart-link');
     if (mobileCartLink) {
       mobileCartLink.style.display = this.state.cart.length > 0 ? '' : 'none';
-      mobileCartLink.textContent = `📋 รายการจอง (${this.state.cart.length})`;
+      mobileCartLink.textContent = `📋 ${t('cart.title')} (${this.state.cart.length})`;
     }
   },
 
@@ -452,35 +452,33 @@ window.App = {
       <section class="hero">
         <div class="hero-particles" id="hero-particles"></div>
         <img src="logo.png" alt="KCIB" class="hero-logo">
-        <div class="hero-eyebrow">KMITL ChE · ระบบจองอุปกรณ์</div>
-        <h1 class="hero-title">ระบบจองเครื่องมือ<br><span>ภาควิชาวิศวกรรมเคมี</span></h1>
-        <p class="hero-sub">KMITL ChE Inventory &amp; Booking System<br>สถาบันเทคโนโลยีพระจอมเกล้าเจ้าคุณทหารลาดกระบัง</p>
+        <div class="hero-eyebrow">${t('hero.eyebrow')}</div>
+        <h1 class="hero-title">${t('hero.title1')}<br><span>${t('hero.title2')}</span></h1>
+        <p class="hero-sub">${t('hero.sub')}</p>
         ${u
           ? `<div class="hero-welcome">
                ${u.picture ? `<img src="${u.picture}" alt="" referrerpolicy="no-referrer">` : ''}
-               ยินดีต้อนรับ, ${u.givenName || u.name.split(' ')[0]}
+               ${t('hero.welcome')}, ${u.givenName || u.name.split(' ')[0]}
              </div>`
           : `<a href="#instrument" class="hero-cta" onclick="App.navigate('instrument');return false;">
-               ดูเครื่องมือทั้งหมด <span>→</span>
+               ${t('hero.cta')} <span>→</span>
              </a>`
         }
         <div class="hero-scroll">↓</div>
       </section>
 
       <!-- NOTICE -->
-      <div class="notice-bar">
-        ⚠️ การจองเครื่องมือ/เครื่องวิเคราะห์ต้องล่วงหน้า <strong>3 วันทำการ</strong> &nbsp;|&nbsp; จันทร์–ศุกร์ 09:00–16:00 น. เท่านั้น
-      </div>
+      <div class="notice-bar">${t('notice')}</div>
 
       <!-- STATS -->
       <section class="section">
         <div class="section-inner">
           <div class="stats-row stagger">
             ${[
-              { num: countFor('instrument'), label: 'เครื่องมือ/วิเคราะห์' },
-              { num: countFor('glassware'),  label: 'เครื่องแก้ว' },
-              { num: countFor('scientific'), label: 'อุปกรณ์วิทยาศาสตร์' },
-              { num: inv.filter(i => i.available).length, label: 'รายการพร้อมใช้' },
+              { num: countFor('instrument'), label: t('stat.instrument') },
+              { num: countFor('glassware'),  label: t('stat.glassware') },
+              { num: countFor('scientific'), label: t('stat.scientific') },
+              { num: inv.filter(i => i.available).length, label: t('stat.available') },
             ].map(s => `
               <div class="stat-card card-enter">
                 <div class="stat-num" data-target="${s.num}">0</div>
@@ -488,34 +486,38 @@ window.App = {
               </div>`).join('')}
           </div>
 
-          <div class="section-label">หมวดหมู่อุปกรณ์</div>
-          <h2 class="section-title">เลือกประเภทที่ต้องการจอง</h2>
+          <div class="section-label">${t('section.catLabel')}</div>
+          <h2 class="section-title">${t('section.catTitle')}</h2>
           <p class="section-desc">
-            ข้อมูลแสดงผลแบบ Real-time จาก Google Sheets ของภาควิชา<br>
+            ${t('section.catDesc')}<br>
             <span class="realtime-ts">
               <span class="realtime-dot"></span>
-              อัปเดตล่าสุด: ${new Date().toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok' })} น.
+              ${t('section.updatedAt')}: ${new Date().toLocaleString(window.LANG === 'en' ? 'en-GB' : 'th-TH', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok' })}${window.LANG === 'en' ? '' : ' น.'}
             </span>
           </p>
 
           <div class="cat-grid stagger">
-            ${Object.values(CAT_CONFIG).map(cat => `
+            ${Object.values(CAT_CONFIG).map(cat => {
+              const name = t(`cat.${cat.id}.name`);
+              const desc = t(`cat.${cat.id}.desc`);
+              return `
               <a class="cat-card card-enter" href="#${cat.id}" onclick="App.navigate('${cat.id}');return false;">
                 <div class="cat-card-top">
                   <div class="cat-icon" style="background:${cat.bgColor};color:${cat.textColor};">${cat.icon}</div>
                   <div class="cat-info">
-                    <div class="cat-name" style="color:${cat.textColor};">${cat.name}</div>
-                    <div class="cat-desc">${cat.desc}</div>
+                    <div class="cat-name" style="color:${cat.textColor};">${name}</div>
+                    <div class="cat-desc">${desc}</div>
                   </div>
                 </div>
                 <div class="cat-card-bottom">
                   <div class="cat-count">
                     <span class="cat-count-num">${availFor(cat.id)}</span>
-                    <span>จาก ${countFor(cat.id)} พร้อมใช้</span>
+                    <span>${t('cat.availOf')} ${countFor(cat.id)} ${t('cat.ready')}</span>
                   </div>
                   <div class="cat-arrow">→</div>
                 </div>
-              </a>`).join('')}
+              </a>`;
+            }).join('')}
           </div>
         </div>
       </section>
@@ -523,14 +525,14 @@ window.App = {
       <!-- HOW TO -->
       <section class="section section-alt">
         <div class="section-inner">
-          <div class="section-label">วิธีการใช้งาน</div>
-          <h2 class="section-title">ขั้นตอนการจอง</h2>
+          <div class="section-label">${t('section.howLabel')}</div>
+          <h2 class="section-title">${t('section.howTitle')}</h2>
           <div class="steps-grid stagger">
             ${[
-              { n:'1', icon:'🔑', title:'เข้าสู่ระบบด้วย Google', desc:'ใช้อีเมลสถาบัน @kmitl.ac.th เข้าสู่ระบบผ่าน Google' },
-              { n:'2', icon:'🔍', title:'เลือกอุปกรณ์', desc:'ค้นหาและเลือกอุปกรณ์ที่ต้องการ ตรวจสอบสถานะพร้อมใช้' },
-              { n:'3', icon:'📋', title:'กรอกใบจอง', desc:'ระบุวันเวลา วิชา/โครงการ และเลือกอาจารย์ที่ปรึกษา' },
-              { n:'4', icon:'✅', title:'รอการอนุมัติ', desc:'รอการอนุมัติผ่านอีเมล ติดตามสถานะได้ที่ "การจองของฉัน"' },
+              { n:'1', icon:'🔑', title: t('step1.title'), desc: t('step1.desc') },
+              { n:'2', icon:'🔍', title: t('step2.title'), desc: t('step2.desc') },
+              { n:'3', icon:'📋', title: t('step3.title'), desc: t('step3.desc') },
+              { n:'4', icon:'✅', title: t('step4.title'), desc: t('step4.desc') },
             ].map(s => `
               <div class="step-card card-enter">
                 <div class="step-num">${s.n}</div>
@@ -601,17 +603,17 @@ window.App = {
     el.innerHTML = `
       <div class="equip-header">
         <div class="equip-header-inner">
-          <button class="equip-back" onclick="App.navigate('home')">← กลับ</button>
+          <button class="equip-back" onclick="App.navigate('home')">${t('equip.back')}</button>
           <div class="equip-title-row">
             <div class="equip-cat-icon">${cat.icon}</div>
             <div>
-              <div class="equip-cat-name">${cat.name}</div>
-              <div class="equip-cat-desc">${cat.desc}</div>
+              <div class="equip-cat-name">${t(`cat.${catId}.name`)}</div>
+              <div class="equip-cat-desc">${t(`cat.${catId}.desc`)}</div>
             </div>
           </div>
           <div class="equip-search">
             <svg class="equip-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input type="search" placeholder="ค้นหา..." id="equip-search-input"
+            <input type="search" placeholder="${t('equip.search')}" id="equip-search-input"
               oninput="App._onSearch(this.value)">
           </div>
         </div>
@@ -666,7 +668,7 @@ window.App = {
     };
 
     filterEl.innerHTML =
-      chip('ทั้งหมด', '🏠', '')
+      chip(t('equip.filterAll'), '🏠', '')
       + activeFixed.map(f => chip(f.label, f.icon, f.label)).join('')
       + dynamicLocs.map(loc => chip(loc, '📍', loc)).join('');
   },
@@ -716,7 +718,7 @@ window.App = {
       grid.innerHTML = `
         <div class="equip-empty" style="grid-column:1/-1;">
           <div class="equip-empty-icon">${cat.icon}</div>
-          <div class="equip-empty-msg">${search ? 'ไม่พบผลการค้นหา' : 'ยังไม่มีรายการในหมวดนี้'}</div>
+          <div class="equip-empty-msg">${search ? t('equip.noResults') : t('equip.empty')}</div>
         </div>`;
       return;
     }
@@ -728,22 +730,23 @@ window.App = {
     const isRAD    = item.isRAD;
     const inCart   = this.state.cart.some(c => c.item.id === item.id);
     const availBadge = item.available
-      ? `<span class="eq-avail-badge available">พร้อมใช้</span>`
-      : `<span class="eq-avail-badge unavailable">ไม่ว่าง</span>`;
+      ? `<span class="eq-avail-badge available">${t('equip.available')}</span>`
+      : `<span class="eq-avail-badge unavailable">${t('equip.unavailable')}</span>`;
 
+    const unit = cat.bookingType === 'timed' ? t('equip.unit.timed') : t('equip.unit.qty');
     const qtyBadge = item.maxQty > 0
       ? `<div class="eq-qty-badge${item.maxQty <= 2 ? ' low' : ''}">
-           ${item.maxQty <= 2 ? '⚠️' : '✅'} มีในคลัง: ${item.maxQty} ${cat.bookingType === 'timed' ? 'เครื่อง' : 'ชิ้น'}
+           ${item.maxQty <= 2 ? '⚠️' : '✅'} ${t('equip.inStock')}: ${item.maxQty} ${unit}
          </div>`
       : '';
 
     let bookBtnHtml;
     if (!item.available) {
-      bookBtnHtml = `<button class="btn-book" disabled>ไม่ว่าง</button>`;
+      bookBtnHtml = `<button class="btn-book" disabled>${t('equip.unavailable')}</button>`;
     } else if (inCart) {
-      bookBtnHtml = `<button class="btn-book" style="background:var(--success);" onclick="App._openCart()">✓ ในรายการ</button>`;
+      bookBtnHtml = `<button class="btn-book" style="background:var(--success);" onclick="App._openCart()">${t('equip.inCart')}</button>`;
     } else {
-      bookBtnHtml = `<button class="btn-book" onclick="App._addToCart('${escHtml(item.id)}')">+ เพิ่มลงรายการ</button>`;
+      bookBtnHtml = `<button class="btn-book" onclick="App._addToCart('${escHtml(item.id)}')">${t('equip.addToCart')}</button>`;
     }
 
     return `
@@ -1280,8 +1283,8 @@ window.App = {
         <div style="max-width:700px;margin:0 auto;padding:60px 20px;">
           <div class="bk-empty">
             <div class="bk-empty-icon">🔑</div>
-            <div class="bk-empty-title">กรุณาเข้าสู่ระบบก่อน</div>
-            <div class="bk-empty-desc">เข้าสู่ระบบด้วยบัญชี Google ของสถาบัน</div>
+            <div class="bk-empty-title">${t('mybook.loginFirst')}</div>
+            <div class="bk-empty-desc">${t('mybook.loginDesc')}</div>
           </div>
         </div>`;
       return;
@@ -1291,8 +1294,8 @@ window.App = {
     el.innerHTML = `
       <div class="bk-page">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
-          <h1 style="font-size:22px;font-weight:800;">📋 การจองของฉัน</h1>
-          <button class="btn btn-secondary btn-sm" onclick="App._refreshMyBookings()">↻ รีเฟรช</button>
+          <h1 style="font-size:22px;font-weight:800;">${t('mybook.title')}</h1>
+          <button class="btn btn-secondary btn-sm" onclick="App._refreshMyBookings()">${t('mybook.refresh')}</button>
         </div>
         <div id="bk-filter-bar" class="bk-filter-bar"></div>
         <div id="bookings-list">${this._skeletonBookings(3)}</div>
@@ -1327,7 +1330,7 @@ window.App = {
       }
       this._renderBookingsList();
     } catch (e) {
-      listEl.innerHTML = `<div class="bk-empty"><div class="bk-empty-icon">⚠️</div><div class="bk-empty-title">โหลดไม่สำเร็จ</div><div class="bk-empty-desc">${escHtml(e.message)}</div></div>`;
+      listEl.innerHTML = `<div class="bk-empty"><div class="bk-empty-icon">⚠️</div><div class="bk-empty-title">${t('mybook.loadFail')}</div><div class="bk-empty-desc">${escHtml(e.message)}</div></div>`;
     }
   },
 
@@ -1346,10 +1349,10 @@ window.App = {
     };
 
     filterBar.innerHTML = [
-      { id: 'all',      label: 'ทั้งหมด' },
-      { id: 'pending',  label: 'รอดำเนินการ' },
-      { id: 'approved', label: 'อนุมัติแล้ว' },
-      { id: 'rejected', label: 'ปฏิเสธ/ยกเลิก' },
+      { id: 'all',      label: t('mybook.tab.all') },
+      { id: 'pending',  label: t('mybook.tab.pending') },
+      { id: 'approved', label: t('mybook.tab.approved') },
+      { id: 'rejected', label: t('mybook.tab.rejected') },
     ].map(tab => `
       <div class="bk-filter-tab ${f === tab.id ? 'active' : ''}"
            onclick="App._setMyBookingsFilter('${tab.id}')">
@@ -1366,9 +1369,9 @@ window.App = {
       listEl.innerHTML = `
         <div class="bk-empty">
           <div class="bk-empty-icon">📭</div>
-          <div class="bk-empty-title">ไม่มีรายการ</div>
-          <div class="bk-empty-desc">ยังไม่มีรายการจองในหมวดนี้</div>
-          <button class="btn btn-primary" onclick="App.navigate('instrument')">จองอุปกรณ์</button>
+          <div class="bk-empty-title">${t('mybook.empty')}</div>
+          <div class="bk-empty-desc">${t('mybook.emptyDesc')}</div>
+          <button class="btn btn-primary" onclick="App.navigate('instrument')">${t('mybook.bookNow')}</button>
         </div>`;
       return;
     }
@@ -1493,8 +1496,8 @@ window.App = {
         <div style="max-width:700px;margin:0 auto;padding:60px 20px;">
           <div class="bk-empty">
             <div class="bk-empty-icon">🔒</div>
-            <div class="bk-empty-title">ไม่มีสิทธิ์เข้าถึง</div>
-            <div class="bk-empty-desc">เฉพาะเจ้าหน้าที่และอาจารย์เท่านั้น</div>
+            <div class="bk-empty-title">${t('dash.noAccess')}</div>
+            <div class="bk-empty-desc">${t('dash.noAccessDesc')}</div>
           </div>
         </div>`;
       return;
@@ -1503,14 +1506,14 @@ window.App = {
     el.innerHTML = `
       <div class="dash-v2-page">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
-          <h1 style="font-size:22px;font-weight:800;">📊 แดชบอร์ด</h1>
+          <h1 style="font-size:22px;font-weight:800;">${t('dash.title')}</h1>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <a class="btn btn-secondary btn-sm" href="${window.GSHEET_URL||GSHEET_URL}" target="_blank" rel="noopener"
                style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/><polyline points="9 9 10 9"/></svg>
-              ดูข้อมูลการจอง (Sheets)
+              ${t('dash.viewSheets')}
             </a>
-            <button class="btn btn-secondary btn-sm" onclick="App._loadDashboard()">↻ รีเฟรช</button>
+            <button class="btn btn-secondary btn-sm" onclick="App._loadDashboard()">${t('dash.refresh')}</button>
           </div>
         </div>
         <div id="dash-stats" class="dash-v2-stats">
@@ -1522,9 +1525,9 @@ window.App = {
         </div>
         <div id="dash-tabs" class="dash-v2-tab-nav" style="display:none;">
           <button class="dash-v2-tab-btn active" onclick="App._switchDashTab('pending', this)">
-            ⏳ รอฉันอนุมัติ <span id="dash-needs-badge" style="background:var(--danger);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;margin-left:4px;display:none;"></span>
+            ${t('dash.tab.pending')} <span id="dash-needs-badge" style="background:var(--danger);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;margin-left:4px;display:none;"></span>
           </button>
-          <button class="dash-v2-tab-btn" onclick="App._switchDashTab('all', this)">📋 ทั้งหมด</button>
+          <button class="dash-v2-tab-btn" onclick="App._switchDashTab('all', this)">${t('dash.tab.all')}</button>
         </div>
         <div id="dash-content">
           <div class="skeleton" style="height:300px;border-radius:var(--radius);"></div>
@@ -1564,10 +1567,10 @@ window.App = {
     }
 
     el.innerHTML = [
-      { icon: '📋', bg: '#eff6ff', color: 'var(--info)',    num: total,   label: 'รายการทั้งหมด' },
-      { icon: '⏳', bg: '#fff7ed', color: 'var(--warning)', num: pending, label: 'รอดำเนินการ' },
-      { icon: '✅', bg: '#f0fdf4', color: 'var(--success)', num: approv,  label: 'อนุมัติแล้ว' },
-      { icon: '🔔', bg: '#fef2f2', color: 'var(--danger)',  num: needsMe, label: 'รอฉันดำเนินการ' },
+      { icon: '📋', bg: '#eff6ff', color: 'var(--info)',    num: total,   label: t('dash.stat.total') },
+      { icon: '⏳', bg: '#fff7ed', color: 'var(--warning)', num: pending, label: t('dash.stat.pending') },
+      { icon: '✅', bg: '#f0fdf4', color: 'var(--success)', num: approv,  label: t('dash.stat.approved') },
+      { icon: '🔔', bg: '#fef2f2', color: 'var(--danger)',  num: needsMe, label: t('dash.stat.needsMe') },
     ].map(s => `
       <div class="dash-v2-stat-card">
         <div class="dash-v2-stat-icon" style="background:${s.bg};color:${s.color};">${s.icon}</div>
