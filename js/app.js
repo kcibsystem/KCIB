@@ -546,18 +546,41 @@ window.App = {
   },
 
   _renderLocationFilters() {
-    const catId = this._currentCategory;
-    const items = this.state.inventory.filter(i => i.category === catId);
-    const locations = [...new Set(items.map(i => i.location).filter(Boolean))].sort();
+    const catId  = this._currentCategory;
+    const items  = this.state.inventory.filter(i => i.category === catId);
     const filterEl = document.getElementById('equip-filters');
-    if (!filterEl || locations.length < 2) return;
+    if (!filterEl) return;
+
+    // Fixed filters always shown
+    const FIXED_FILTERS = [
+      { label: 'Team Project 2', match: (i) =>
+          /team.?project.?2/i.test(i.courseLimit) || /team.?project.?2/i.test(i.location) },
+      { label: 'CCA Lab-1',  match: (i) => /cca.?lab.?1/i.test(i.location)  },
+      { label: 'CCA Lab-3',  match: (i) => /cca.?lab.?3/i.test(i.location)  },
+    ];
+
+    // Extra dynamic locations not covered by fixed filters
+    const fixedLabels = new Set(FIXED_FILTERS.map(f => f.label.toLowerCase()));
+    const dynamicLocs = [...new Set(items.map(i => i.location).filter(Boolean))]
+      .sort()
+      .filter(loc => !FIXED_FILTERS.some(f => f.match({ location: loc, courseLimit: '' }))
+                     && !fixedLabels.has(loc.toLowerCase()));
+
+    // Only show filters that have matching items
+    const activeFixed = FIXED_FILTERS.filter(f => items.some(f.match));
+
+    if (activeFixed.length === 0 && dynamicLocs.length === 0) return;
 
     const cur = this._currentLocationFilter;
     filterEl.innerHTML = `
       <span class="equip-filter-label">ห้อง/สถานที่:</span>
       <div class="filter-chip ${cur === '' ? 'active' : ''}"
            onclick="App._setLocationFilter('')">ทั้งหมด</div>
-      ${locations.map(loc => `
+      ${activeFixed.map(f => `
+        <div class="filter-chip ${cur === f.label ? 'active' : ''}"
+             onclick="App._setLocationFilter('${escHtml(f.label)}')">${escHtml(f.label)}</div>
+      `).join('')}
+      ${dynamicLocs.map(loc => `
         <div class="filter-chip ${cur === loc ? 'active' : ''}"
              onclick="App._setLocationFilter('${escHtml(loc)}')">${escHtml(loc)}</div>
       `).join('')}`;
@@ -584,7 +607,15 @@ window.App = {
     let items = this.state.inventory.filter(i => i.category === catId);
 
     if (this._currentLocationFilter) {
-      items = items.filter(i => i.location === this._currentLocationFilter);
+      const loc = this._currentLocationFilter;
+      if (/^team.?project.?2$/i.test(loc)) {
+        items = items.filter(i =>
+          /team.?project.?2/i.test(i.courseLimit) || /team.?project.?2/i.test(i.location));
+      } else if (/^cca.?lab/i.test(loc)) {
+        items = items.filter(i => new RegExp(loc.replace(/-/g,'[- ]?'), 'i').test(i.location));
+      } else {
+        items = items.filter(i => i.location === loc);
+      }
     }
 
     if (search) {
@@ -1223,7 +1254,7 @@ window.App = {
     const f = this._myBookingsFilter;
     const counts = {
       all:      bookings.length,
-      pending:  bookings.filter(b => [STATUS_P1, STATUS_P2].includes(b.Status || '')).length,
+      pending:  bookings.filter(b => [STATUS_P1, STATUS_P2, STATUS_P3].includes(b.Status || '')).length,
       approved: bookings.filter(b => b.Status === STATUS_OK).length,
       rejected: bookings.filter(b => [STATUS_REJ, STATUS_CAN].includes(b.Status || '')).length,
     };
@@ -1241,7 +1272,7 @@ window.App = {
       </div>`).join('');
 
     let filtered = bookings;
-    if (f === 'pending')  filtered = bookings.filter(b => [STATUS_P1, STATUS_P2].includes(b.Status || ''));
+    if (f === 'pending')  filtered = bookings.filter(b => [STATUS_P1, STATUS_P2, STATUS_P3].includes(b.Status || ''));
     if (f === 'approved') filtered = bookings.filter(b => b.Status === STATUS_OK);
     if (f === 'rejected') filtered = bookings.filter(b => [STATUS_REJ, STATUS_CAN].includes(b.Status || ''));
 
@@ -1322,7 +1353,8 @@ window.App = {
     return [
       { icon: '📝', label: 'ส่งคำขอ' },
       { icon: '👨‍🏫', label: 'อ.ที่ปรึกษา' },
-      { icon: '📋', label: 'เจ้าหน้าที่' },
+      { icon: '🏛️', label: 'หัวหน้าภาค' },
+      { icon: '🔬', label: 'เจ้าหน้าที่' },
       { icon: '✅', label: 'เสร็จสิ้น' },
     ];
   },
@@ -1331,8 +1363,9 @@ window.App = {
     switch (status) {
       case STATUS_P1:  return 1;
       case STATUS_P2:  return 2;
-      case STATUS_OK:  return 3;
-      case STATUS_REJ: return 2;
+      case STATUS_P3:  return 3;
+      case STATUS_OK:  return 4;
+      case STATUS_REJ: return 3;
       case STATUS_CAN: return 1;
       default:         return 0;
     }
@@ -1427,7 +1460,7 @@ window.App = {
     if (!el) return;
     const all     = this._allBookings;
     const total   = all.length;
-    const pending = all.filter(b => [STATUS_P1, STATUS_P2].includes(b.Status || '')).length;
+    const pending = all.filter(b => [STATUS_P1, STATUS_P2, STATUS_P3].includes(b.Status || '')).length;
     const approv  = all.filter(b => b.Status === STATUS_OK).length;
     const needsMe = all.filter(b => this._canApprove(b)).length;
 
@@ -1461,7 +1494,7 @@ window.App = {
   _renderDashTabContent(tab) {
     const el   = document.getElementById('dash-content');
     if (!el) return;
-    const all  = this._allBookings;
+    const all   = this._allBookings;
     const items = tab === 'pending'
       ? all.filter(b => this._canApprove(b))
       : all.slice().reverse().slice(0, 200);
@@ -1471,11 +1504,32 @@ window.App = {
       return;
     }
 
+    // Bulk action bar (only on pending tab)
+    const bulkBar = tab === 'pending' && items.length > 0 ? `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--warning-bg);border-bottom:1px solid #fde68a;gap:12px;flex-wrap:wrap;">
+        <span style="font-size:13px;font-weight:700;color:#92400e;">
+          ⏳ รอการอนุมัติจากคุณ ${items.length} รายการ
+        </span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-sm" style="background:#f0fdf4;color:var(--success);border:1px solid #86efac;font-weight:700;"
+            onclick="App._approveAllPending()">✅ อนุมัติทั้งหมด (${items.length})</button>
+          <button class="btn btn-sm" style="background:#fef2f2;color:var(--danger);border:1px solid #fecaca;font-weight:700;"
+            onclick="App._rejectAllPending()">❌ ปฏิเสธทั้งหมด (${items.length})</button>
+        </div>
+      </div>` : '';
+
     const rows = items.map(b => {
       const { badge } = statusStyle(b.Status || '');
       const cat     = CAT_CONFIG[String(b.Category || '').toLowerCase()] || {};
       const start   = b.Start ? String(b.Start).substring(0, 16).replace('T', ' ') : '-';
       const canAct  = this._canApprove(b);
+
+      // Step label
+      const stepLabel = {
+        [STATUS_P1]: '1. รออ.ที่ปรึกษา',
+        [STATUS_P2]: '2. รอหัวหน้าภาค',
+        [STATUS_P3]: '3. รอเจ้าหน้าที่',
+      }[b.Status] || escHtml(b.Status || '-');
 
       return `
         <tr>
@@ -1489,12 +1543,14 @@ window.App = {
           </td>
           <td style="font-size:13px;">${escHtml(b.Course || '-')}</td>
           <td style="font-size:13px;">${start}</td>
-          <td><span class="booking-badge ${badge}">${escHtml(b.Status || '-')}</span></td>
+          <td><span class="booking-badge ${badge}">${stepLabel}</span></td>
           <td>
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
               ${canAct ? `
-                <button class="btn btn-sm" style="background:#f0fdf4;color:var(--success);border:1px solid #86efac;" onclick="App._approveBooking('${escHtml(b.BookingID)}')">✅ อนุมัติ</button>
-                <button class="btn btn-sm" style="background:#fef2f2;color:var(--danger);border:1px solid #fecaca;" onclick="App._rejectBooking('${escHtml(b.BookingID)}')">❌ ปฏิเสธ</button>
+                <button class="btn btn-sm" style="background:#f0fdf4;color:var(--success);border:1px solid #86efac;"
+                  onclick="App._approveBooking('${escHtml(b.BookingID)}')">✅ อนุมัติ</button>
+                <button class="btn btn-sm" style="background:#fef2f2;color:var(--danger);border:1px solid #fecaca;"
+                  onclick="App._rejectBooking('${escHtml(b.BookingID)}')">❌ ปฏิเสธ</button>
               ` : `<span style="font-size:12px;color:var(--text-3);">${escHtml(b.CurrentApproverName || '-')}</span>`}
             </div>
           </td>
@@ -1503,6 +1559,7 @@ window.App = {
 
     el.innerHTML = `
       <div class="dash-v2-table-wrap">
+        ${bulkBar}
         <table class="dash-v2-table">
           <thead>
             <tr>
@@ -1524,14 +1581,19 @@ window.App = {
     if (!u || !this._isStaff()) return false;
     const role   = u.role;
     const status = b.Status || '';
+    const course = (b.Course || '').toLowerCase();
+
+    // Step 1: อาจารย์ที่ปรึกษา
     if (role === 'ADVISORS' && status === STATUS_P1) {
       return (b.AdvisorEmail || '').toLowerCase().trim() === u.email;
     }
-    if (status === STATUS_P2) {
-      const cat    = (b.Category || '').toLowerCase();
-      const course = (b.Course   || '').toLowerCase();
-      if (/instrument|analyt/.test(cat))    return role === 'VIEWERS';
-      if (/team.?project.?2/.test(course))  return role === 'STAFF_PROJECT_2';
+    // Step 2: หัวหน้าภาค (VIEWERS) อนุมัติทุกรายการ
+    if (role === 'VIEWERS' && status === STATUS_P2) {
+      return true;
+    }
+    // Step 3: เจ้าหน้าที่ — แยกตาม Team Project 2 หรือรายการปกติ
+    if (status === STATUS_P3) {
+      if (/team.?project.?2/.test(course)) return role === 'STAFF_PROJECT_2';
       return role === 'STAFF_FLOOR_1';
     }
     return false;
@@ -1563,6 +1625,42 @@ window.App = {
     }
   },
 
+  async _approveAllPending() {
+    const pending = this._allBookings.filter(b => this._canApprove(b));
+    if (pending.length === 0) return;
+    if (!confirm(`ยืนยันการอนุมัติทั้งหมด ${pending.length} รายการ?`)) return;
+
+    let ok = 0, fail = 0;
+    showToast('info', `กำลังอนุมัติ ${pending.length} รายการ...`, '');
+    for (const b of pending) {
+      try {
+        const r = await apiPost({ action: 'approveBooking', bookingId: b.BookingID });
+        if (r.success) ok++; else fail++;
+      } catch { fail++; }
+    }
+    this._allBookings = [];
+    await this._loadDashboard();
+    showToast('success', `อนุมัติสำเร็จ ${ok} รายการ${fail > 0 ? ` (ไม่สำเร็จ ${fail})` : ''}`, '');
+  },
+
+  async _rejectAllPending() {
+    const pending = this._allBookings.filter(b => this._canApprove(b));
+    if (pending.length === 0) return;
+    if (!confirm(`ยืนยันการปฏิเสธทั้งหมด ${pending.length} รายการ?`)) return;
+
+    let ok = 0, fail = 0;
+    showToast('info', `กำลังปฏิเสธ ${pending.length} รายการ...`, '');
+    for (const b of pending) {
+      try {
+        const r = await apiPost({ action: 'rejectBooking', bookingId: b.BookingID });
+        if (r.success) ok++; else fail++;
+      } catch { fail++; }
+    }
+    this._allBookings = [];
+    await this._loadDashboard();
+    showToast('info', `ปฏิเสธ ${ok} รายการ${fail > 0 ? ` (ไม่สำเร็จ ${fail})` : ''}`, '');
+  },
+
   /* ================================================== MODAL */
   openModal(html) {
     const box = document.getElementById('modal-box');
@@ -1582,7 +1680,8 @@ window.App = {
    STATUS CONSTANTS
    ==================================================== */
 const STATUS_P1  = 'รอที่ปรึกษาอนุมัติ';
-const STATUS_P2  = 'รออนุมัติขั้นที่ 2';
+const STATUS_P2  = 'รออนุมัติขั้นที่ 2';   // หัวหน้าภาค (VIEWERS)
+const STATUS_P3  = 'รออนุมัติขั้นที่ 3';   // เจ้าหน้าที่ (STAFF_PROJECT_2 / STAFF_FLOOR_1)
 const STATUS_OK  = 'อนุมัติแล้ว';
 const STATUS_REJ = 'ปฏิเสธ';
 const STATUS_CAN = 'ยกเลิก';
@@ -1626,6 +1725,7 @@ function statusStyle(status) {
   switch (status) {
     case STATUS_P1:  return { cls: 'pending',   badge: 'status-pending-1', icon: '⏳' };
     case STATUS_P2:  return { cls: 'pending',   badge: 'status-pending-2', icon: '🔄' };
+    case STATUS_P3:  return { cls: 'pending',   badge: 'status-pending-2', icon: '🔄' };
     case STATUS_OK:  return { cls: 'approved',  badge: 'status-approved',  icon: '✅' };
     case STATUS_REJ: return { cls: 'rejected',  badge: 'status-rejected',  icon: '❌' };
     case STATUS_CAN: return { cls: 'cancelled', badge: 'status-cancelled', icon: '🚫' };
