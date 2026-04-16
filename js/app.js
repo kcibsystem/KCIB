@@ -240,6 +240,10 @@ window.App = {
       : '';
 
     if (!u) {
+      // Hide mobile notif bell when logged out
+      const mobileNotifBtnOut = document.getElementById('mobile-notif-btn');
+      if (mobileNotifBtnOut) mobileNotifBtnOut.style.display = 'none';
+
       el.innerHTML = `${cartBtnHtml}<div class="nav-signin-btn"><div id="g_id_signin_button"></div></div>`;
       this._renderGSI();
       // Mobile: show sign-in slot in the drawer
@@ -249,6 +253,10 @@ window.App = {
         this._renderGSIMobile();
       }
     } else {
+      // Mobile: show notif bell next to hamburger
+      const mobileNotifBtn = document.getElementById('mobile-notif-btn');
+      if (mobileNotifBtn) mobileNotifBtn.style.display = 'flex';
+
       // Mobile: show user card in the drawer
       const mobileSlot = document.getElementById('mobile-signin-slot');
       if (mobileSlot) {
@@ -1167,12 +1175,13 @@ window.App = {
   },
 
   _updateNotifBadge() {
-    const badge = document.getElementById('notif-badge');
     const count = this._notifCount || 0;
-    if (badge) {
-      badge.textContent = count > 99 ? '99+' : count;
-      badge.style.display = count > 0 ? 'flex' : 'none';
-    }
+    const val   = count > 99 ? '99+' : count;
+    const show  = count > 0 ? 'flex' : 'none';
+    ['notif-badge', 'mobile-notif-badge'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.textContent = val; el.style.display = show; }
+    });
   },
 
   _markNotifsRead() {

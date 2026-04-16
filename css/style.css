@@ -263,6 +263,11 @@ input, select, textarea { font-family: inherit; }
 .dropdown-item.danger { color: var(--danger); }
 .dropdown-divider { height: 1px; background: var(--border); margin: 4px 0; }
 
+/* Mobile notif bell — always hidden on desktop regardless of JS */
+@media (min-width: 769px) {
+  #mobile-notif-btn { display: none !important; }
+}
+
 /* Hamburger */
 .nav-hamburger {
   display: none;
