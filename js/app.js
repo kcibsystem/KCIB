@@ -452,6 +452,7 @@ window.App = {
       <section class="hero">
         <div class="hero-particles" id="hero-particles"></div>
         <img src="logo.png" alt="KCIB" class="hero-logo">
+        <div class="hero-eyebrow">KMITL ChE · ระบบจองอุปกรณ์</div>
         <h1 class="hero-title">ระบบจองเครื่องมือ<br><span>ภาควิชาวิศวกรรมเคมี</span></h1>
         <p class="hero-sub">KMITL ChE Inventory &amp; Booking System<br>สถาบันเทคโนโลยีพระจอมเกล้าเจ้าคุณทหารลาดกระบัง</p>
         ${u
