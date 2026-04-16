@@ -1433,8 +1433,7 @@ table.dash-table {
   .mobile-signin-slot {
     display: flex;
     justify-content: center;
-    padding: 12px 8px 4px;
-    margin-top: auto;
+    padding: 10px 8px 6px;
   }
 
   .cat-grid { grid-template-columns: 1fr; }
