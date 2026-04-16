@@ -1,4 +1,0 @@
-1. ไปเจนลิงก์ googleuser มาใหม่ จาก google console ใส่ที่ index.html
-2. ไปเอาลิงก์ appscript มาใหม่ ใส่ที่ index.html (...exec)
-3. ไปเอาลิงก์ sheet มาใหม่ ใส่ที่ index.html 2 ที่ ctrl F เอา
-4. แก้ไขเมลที่จัดการเรื่องต่างๆ ใน code.gs
