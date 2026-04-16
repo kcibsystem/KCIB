@@ -1,5 +1,5 @@
 /**
- * KCIB Gemini Chatbot - DEBUG VERSION
+ * KCIB ChatGPT Chatbot
  */
 
 const Chatbot = {
@@ -25,12 +25,12 @@ const Chatbot = {
       <div id="chatbot-window">
         <div class="chat-header">
           <div class="chat-header-title">
-            <span>KCIB AI Assistant</span>
+            <span>KCIB AI Assistant (ChatGPT)</span>
           </div>
           <button class="chat-close-btn">&times;</button>
         </div>
         <div class="chat-messages" id="chat-messages-container">
-          <div class="message bot">ระบบพร้อมทดสอบแล้วครับ กรุณาลองพิมพ์คำถามดูครับ</div>
+          <div class="message bot">สวัสดีครับ ผมคือ AI ของระบบ KCIB มีอะไรให้ช่วยไหมครับ?</div>
         </div>
         <div class="chat-input-area">
           <input type="text" id="chat-input" placeholder="พิมพ์ข้อความที่นี่..." autocomplete="off">
@@ -42,7 +42,7 @@ const Chatbot = {
   },
 
   _buildSystemPrompt() {
-    this.systemPrompt = "คุณคือผู้ช่วย AI ของระบบ KCIB ภาควิชาวิศวกรรมเคมี สจล.";
+    this.systemPrompt = "คุณคือผู้ช่วย AI ของระบบ KCIB (KMITL ChE Inventory & Booking) ภาควิชาวิศวกรรมเคมี สจล. ให้ข้อมูลสุภาพและเป็นกันเอง";
   },
 
   _attachEvents() {
@@ -78,7 +78,7 @@ const Chatbot = {
     const typingId = this._addTyping();
 
     try {
-      const response = await this._callGemini(text);
+      const response = await this._callChatGPT(text);
       this._removeTyping(typingId);
       this._addMessage('bot', response);
     } catch (error) {
@@ -101,7 +101,7 @@ const Chatbot = {
     const div = document.createElement('div');
     div.className = 'typing';
     div.id = 'typing-' + Date.now();
-    div.innerText = 'กำลังประมวลผล...';
+    div.innerText = 'ChatGPT กำลังคิด...';
     container.appendChild(div);
     return div.id;
   },
@@ -111,28 +111,36 @@ const Chatbot = {
     if (el) el.remove();
   },
 
-  async _callGemini(userText) {
-    const key = (typeof GEMINI_API_KEY !== 'undefined') ? GEMINI_API_KEY.trim() : "";
-    if (!key || key.includes("YOUR_API")) throw new Error("ไม่พบ API Key หรือ Key ไม่ถูกต้อง");
+  async _callChatGPT(userText) {
+    const key = (typeof OPENAI_API_KEY !== 'undefined') ? OPENAI_API_KEY.trim() : "";
+    if (!key || key.includes("sk-proj-")) {
+        // Simple check: make sure it's not the placeholder or empty
+        if (!key) throw new Error("ไม่พบ OpenAI API Key");
+    }
 
-    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${key}`;
-    
-    const response = await fetch(url, {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key}`
+      },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: this.systemPrompt + "\n\nUser: " + userText }] }]
+        model: "gpt-3.5-turbo", // หรือ "gpt-4o-mini"
+        messages: [
+          { role: "system", content: this.systemPrompt },
+          { role: "user", content: userText }
+        ],
+        temperature: 0.7
       })
     });
 
     const data = await response.json();
     
     if (data.error) {
-      // พ่น Error Code และ Message ออกมาตรงๆ
-      throw new Error(`[${data.error.code}] ${data.error.message}`);
+      throw new Error(data.error.message);
     }
     
-    return data.candidates[0].content.parts[0].text;
+    return data.choices[0].message.content;
   }
 };
 
