@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Book It!</title>
+<meta content="ระบบจองอุปกรณ์และสารเคมี พร้อมปฏิทินแบบโต้ตอบ และยืนยันการคืนด้วยรูปภาพ" name="description"/>
+<meta content="Book It! - จองทุกอย่างที่นี่" property="og:title"/>
+<meta content="จองอุปกรณ์และสารเคมี เลือกเวลา อนุมัติ และยืนยันการคืนได้ในที่เดียว" property="og:description"/>
+<meta content="website" property="og:type"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600;700&amp;family=Unbounded:wght@700&amp;display=swap" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet"/>
+<script defer="" src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script async="" defer="" src="https://accounts.google.com/gsi/client"></script>
+<script defer="" src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+<link href="favicon.png" rel="icon" type="image/png"/>
+<style>
+    :root{
+      --primary: #009688;
+      --primary-600: #00796b;
+      --light: #f0f2f5;
+      --dark: #555555;
+      --border: #dddddd;
+      --me: #009688;
+      --other: #868e96;
+      --problem: #e03131;
+      --radius: 12px;
+      --radius-lg: 20px;
+    }
+    .user-profile .caret {
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid currentColor;
+    margin-left: 4px;
+    transition: transform .18s ease;
+    }
+    .user-profile.open .caret { transform: rotate(180deg); }
+
+    html, body, *{ font-family: 'LINE Seed Sans TH', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+    body{ margin: 0; background: #ffffff; color: #111; }
+    h1, h2, h3{ font-weight: 700; color: #222; }
+ 
+    .navbar{
+      padding: 25px 40px; position: fixed; top: 0; left: 0; right: 0; z-index: 1000; display: flex; align-items: center; box-sizing: border-box; transition: background-color .4s, padding .4s, box-shadow .4s;
+    }
+    .navbar.scrolled, .navbar:hover{ background: #ffffff; box-shadow: 0 4px 15px rgba(0,0,0,.1); padding: 15px 40px; }
+    .navbar-logo a{ font-family: 'Unbounded', sans-serif; font-size: 24px; text-decoration: none; color: #ffffff; transition: color .4s; font-weight: 800; }
+    .navbar.scrolled .navbar-logo a, .navbar:hover .navbar-logo a{ color: #111111; }
+
+    .nav-menu{ list-style: none; display: flex; gap: 40px; margin: 0; padding: 0; align-items: center; margin-left: auto; }
+    .nav-link{ text-decoration: none; font-weight: 600; color: #ffffff; text-shadow: 0 1px 3px rgba(0,0,0,.4); transition: color .3s, text-shadow .3s; }
+    .navbar.scrolled .nav-link, .navbar:hover .nav-link{ color: #111111; text-shadow: none; }
+
+    .user-profile{ display: flex; align-items: center; gap: 10px; color: #ffffff; text-shadow: 0 1px 3px rgba(0,0,0,.4); position: relative; cursor: pointer; }
+    .navbar.scrolled .user-profile, .navbar:hover .user-profile{ color: #111111; text-shadow: none; }
+    .user-profile img{ width: 32px; height: 32px; border-radius: 50%; }
+    .user-dropdown{ position:absolute; right:0; top:48px; min-width: 220px; background:#fff; border:1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,.12); padding:8px; display:none; z-index: 1100; }
+    .user-dropdown a{ display:block; padding:10px 12px; text-decoration:none; color:#111; border-radius:10px; font-weight:600; }
+    .user-dropdown a:hover{ background:#f3f4f6; }
+
+    .hamburger-menu{ display: none; width: 30px; height: 25px; border: none; background: transparent; cursor: pointer; margin-left: auto; z-index: 1002; }
+    .hamburger-menu span{ display: block; width: 30px; height: 3px; background: #333333; border-radius: 5px; margin: 4px 0; transition: background-color .3s; }
+
+    .hero-section{ height: 100vh; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #001f1d; }
+    #hero-video{ position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); min-width: 100%; min-height: 100%; width: auto; height: auto; z-index: 0; filter: saturate(1.05) contrast(1.05); }
+    .hero-section::after{ content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.45), rgba(0,0,0,.35)); z-index: 1; pointer-events: none; }
+    .hero-content{ z-index: 2; text-align: center; color: #ffffff; padding: 0 16px; }
+    .hero-content h1 { font-size: clamp(5rem, 6vw, 4rem); font-weight: 800; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.7); margin: 0; line-height: 1.2; }
+
+    .global-search{ margin-top: 18px; display:flex; justify-content:center; }
+    .global-search input{ width:min(680px, 92vw); padding:14px 16px; border-radius: 9999px; border:1px solid #d1d5db; font-size:16px; box-shadow:0 4px 16px rgba(0,0,0,.15); }
+    .search-suggest{ width:min(680px, 92vw); margin:8px auto 0; background:#fff; border:1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 12px 24px rgba(0,0,0,.2); overflow:hidden; display:none; text-align:left; }
+    .search-suggest-item{ padding:10px 14px; cursor:pointer; color: #111}
+    .search-suggest-item:hover{ background:#f3f4f6; }
+    .search-suggest-item small {color: #555 !important;}
+
+    .scroll-down-arrow{ position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); font-size: 2rem; color: #ffffff; text-shadow: 0 1px 4px rgba(0,0,0,.5); animation: bounce 2s infinite; z-index: 1; }
+    @keyframes bounce{ 0%,20%,50%,80%,100%{ transform: translate(-50%,0); } 40%{ transform: translate(-50%,-20px); } 60%{ transform: translate(-50%,-10px); } }
+
+    .content-section{ padding: 80px 40px; max-width: 1600px; margin: auto; box-sizing: border-box; }
+    .content-section h2{ text-align: center; font-size: 2.6rem; margin-bottom: 50px; color: #333333; }
+
+    .main-container{ display: flex; gap: 20px; align-items: flex-start; }
+    .controls-panel{ flex: 0 0 360px; background: var(--light); padding: 20px; border-radius: var(--radius); height: fit-content; box-sizing: border-box; }
+    .calendar-panel{ flex: 1; background: var(--light); padding: 20px; border-radius: var(--radius); min-height: 720px; box-sizing: border-box; position: relative; }
+
+    .control-group{ margin-bottom: 22px; position: relative; }
+    .control-group label{ display: block; font-weight: 600; margin-bottom: 8px; color: var(--dark); }
+    .control-group select, .control-group button, .control-group input[type="file"], .control-group input[type="date"], .control-group input[type="time"]{ width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: #ffffff; box-sizing: border-box; font-size: 15px; -webkit-appearance: none; appearance: none; }
+    .control-group select:not(:disabled) { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem; }
+
+    .control-group button{ background: var(--primary); color: #ffffff; font-weight: 700; cursor: pointer; transition: filter .2s, transform .06s; }
+    .control-group button:hover{ filter: brightness(1.05); }
+    .control-group button:active{ transform: translateY(1px); }
+    .control-group button:disabled{ background: #cfd4da; cursor: not-allowed; }
+
+    #item-details{ border-top: 1px solid #dddddd; padding-top: 15px; margin-top: 20px; }
+    #item-details h3{ margin-top: 0; color: var(--primary); font-size: 1.2rem; }
+    #item-details-content p{ margin: 6px 0; font-size: 15px; }
+    #item-details-content b{ display: inline-block; width: 120px; color: #333333; }
+
+    #return-section{ border-top: 1px dashed #cccccc; margin-top: 18px; padding-top: 14px; }
+    #return-preview{ margin-top: 8px; display: none; }
+    #return-preview img{ max-width: 100%; border-radius: var(--radius); border: 1px solid #dddddd; }
+
+    .fc-event{ cursor: pointer; transition: filter 0.2s ease-in-out; }
+    .fc-event:hover:not(.event-selected) { filter: brightness(0.9); }
+    .my-event{ background: var(--me) !important; border-color: var(--me) !important; }
+    .other-event{ background: var(--other) !important; border-color: var(--other) !important; }
+    .problem-event{ background: var(--problem) !important; border-color: var(--problem) !important; }
+    .fc-event.event-selected { filter: brightness(0.8); box-shadow: 0 0 0 2px var(--primary-600) inset; }
+    .cancel-booking-btn{ position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; background: #ffffff; color: #e63946; border: none; border-radius: 50%; font-weight: 700; cursor: pointer; line-height: 1; font-size: 12px; opacity: .85; }
+
+    .swal2-popup{ width: min(680px, 92vw) !important; border-radius: var(--radius-lg) !important; padding: 24px !important; overflow: hidden !important; box-sizing: border-box !important; font-family: 'LINE Seed Sans TH' !important; }
+    .swal2-title{ font-weight: 700 !important; letter-spacing: .2px !important; }
+    .swal2-html-container{ margin: 0 !important; padding: 0 !important; width: 100% !important; box-sizing: border-box !important; }
+    .swal2-actions .swal2-styled{ font-family: 'LINE Seed Sans TH', sans-serif !important; border-radius: 999px !important; padding: 10px 18px !important; min-width: 120px; }
+    .swal-grid{ display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 10px; }
+    .swal-field{ text-align: left; }
+    .swal-field label{ display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; color: #374151; }
+    .swal-field input, .swal-field select{ display: block; width: 100%; max-width: 100%; box-sizing: border-box; padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 14px; font-size: 14px; background: #ffffff; }
+    .swal-field.full{ grid-column: 1 / -1; }
+    .swal-footnote{ font-size: 12px; color: #6b7280; margin-top: 6px; }
+    .swal-booking-time { text-align: center; font-size: 1.1rem; font-weight: 600; padding: 10px; background-color: #f3f4f6; border-radius: 10px; margin-bottom: 16px; color: var(--primary-600); }
+
+    footer{ background: #343a40; color: #ffffff; text-align: right; padding: 20px 40px; }
+
+    @media (max-width: 992px){ .main-container{ flex-direction: column; } .controls-panel{ flex: 0 0 auto; width: 100%; } }
+    @media (max-width: 768px){
+      .navbar{ padding: 15px 20px; background: #ffffff; box-shadow: 0 4px 15px rgba(0,0,0,.1); }
+      .nav-link, .navbar .navbar-logo a, .user-profile{ color: #111111; text-shadow: none; }
+      .content-section{ padding: 60px 20px; }
+      .hamburger-menu{ display: block; }
+      #nav-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 999; opacity: 0; visibility: hidden; transition: opacity .35s ease-in-out, visibility .35s ease-in-out; }
+      #nav-overlay.active { opacity: 1; visibility: visible; }
+      .nav-menu{ position: fixed; top: 0; right: 0; height: 100vh; width: 280px; background: #ffffff; box-shadow: -3px 0 10px rgba(0,0,0,.15); flex-direction: column; padding: 120px 0; gap: 0; align-items: flex-start; transform: translateX(100%); transition: transform .35s ease-in-out; z-index: 1001; }
+      .nav-menu.active{ transform: translateX(0); }
+      .nav-menu .nav-item { width: 100%; }
+      .nav-menu .nav-link { color: #333333; text-shadow: none; display: block; padding: 15px 30px; }
+      .nav-menu #auth-container { padding: 15px 30px; }
+      .fc-header-toolbar.fc-toolbar{ flex-direction: column; gap: 10px; }
+      .calendar-panel{ min-height: 80vh; }
+    }
+    :focus-visible{ outline: 3px solid rgba(0,168,132,.55); outline-offset: 2px; border-radius: 6px; }
+
+    #selection-badge { position: absolute; z-index: 10; background: rgba(0,0,0,.75); color: #fff; padding: 5px 12px; border-radius: 6px; font-size: 14px; font-weight: 500; line-height: 1; pointer-events: none; display: none; transform: translateY(-100%); margin-top: -4px; white-space: nowrap; }
+
+    /* my bookings modal */
+    .modal{ position: fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:1300; }
+    .modal.active{ display:flex; }
+    .modal-backdrop{ position:absolute; inset:0; background:rgba(0,0,0,.5); }
+    .modal-card{ position:relative; z-index:1; width:min(880px, 94vw); max-height:80vh; overflow:auto; background:#fff; border-radius:16px; padding:18px; box-shadow:0 12px 30px rgba(0,0,0,.2); }
+    
+    .status-pill { padding: 5px 12px; border-radius: 999px; font-weight: 600; font-size: 13px; text-align: center; }
+    .status-green { background-color: #ecfdf5; color: #16a34a; }
+    .status-red { background-color: #fef2f2; color: #ef4444; }
+    .status-blue { background-color: #eff6ff; color: #2563eb; }
+    
+    #mybookings-content .booking-item {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+
+    .loader-spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid var(--primary);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(240, 242, 245, 0.75);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      border-radius: var(--radius);
+    }
+</style>
+<style>
+@font-face{font-family:'LINE Seed Sans TH';src:url('fonts/LINESeedSansTH_A_Th.ttf') format('truetype');font-weight:200;font-style:normal;font-display:swap;}
+@font-face{font-family:'LINE Seed Sans TH';src:url('fonts/LINESeedSansTH_A_Rg.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap;}
+@font-face{font-family:'LINE Seed Sans TH';src:url('fonts/LINESeedSansTH_A_Bd.ttf') format('truetype');font-weight:700;font-style:normal;font-display:swap;}
+@font-face{font-family:'LINE Seed Sans TH';src:url('fonts/LINESeedSansTH_A_XBd.ttf') format('truetype');font-weight:800;font-style:normal;font-display:swap;}
+@font-face{font-family:'LINE Seed Sans TH';src:url('fonts/LINESeedSansTH_A_He.ttf') format('truetype');font-weight:900;font-style:normal;font-display:swap;}
+html, body, *{font-family:'LINE Seed Sans TH',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif !important;}
+</style>
+<script>
+if (typeof window.SHEET_ID === 'undefined') window.SHEET_ID = '1nxM6_jiawyMjYiajFPgDbuUR-u05V-1HhdhHmurg2uY';
+if (typeof window.SCRIPT_URL === 'undefined') window.SCRIPT_URL = '';
+try { Object.defineProperty(window, 'authContainer', { configurable: true, get: function(){ return document.getElementById('auth-container'); } }); } catch(e){}
+</script>
+</head>
+
+<body>
+<div id="nav-overlay"></div>
+<nav class="navbar" id="main-navbar">
+<div class="navbar-logo">
+<a aria-label="กลับไปด้านบน" href="#">Book It!✨</a>
+</div>
+<ul class="nav-menu" id="nav-menu">
+<li class="nav-item"><a class="nav-link" href="#">หน้าหลัก</a></li>
+<li class="nav-item"><a class="nav-link" href="#booking-info-section">วิธีการจอง</a></li>
+<li class="nav-item"><a class="nav-link" href="#booking-app-section">จองอุปกรณ์และสารเคมี</a></li>
+<li class="nav-item" id="auth-container"></li>
+</ul>
+<button aria-expanded="false" aria-label="เปิดเมนู" class="hamburger-menu" id="hamburger-menu"><span></span><span></span><span></span></button>
+<div data-auto_prompt="false" data-callback="handleCredentialResponse" data-client_id="378772402631-qh0d4fdi7c15octrmjcdlvn3tlq5q61b.apps.googleusercontent.com" data-context="signin" data-hd="kmitl.ac.th" data-ux_mode="popup" id="g_id_onload"></div>
+</nav>
+<section aria-label="ส่วนหัว" class="hero-section">
+<div class="hero-content">
+<h1>จองทุกอย่างที่นี่!</h1>
+<div aria-label="ค้นหารายการทั้งหมด" class="global-search"><input autocomplete="off" id="global-search-input" placeholder="ค้นหา: พิมพ์ชื่ออุปกรณ์/สารเคมี/เครื่องมือ..." type="search"/></div>
+<div aria-label="ผลการค้นหา" class="search-suggest" id="global-search-suggest" role="listbox"></div>
+</div>
+<video autoplay="" id="hero-video" loop="" muted="" playsinline=""><source src="background-video.mp4" type="video/mp4"/></video>
+<a aria-label="เลื่อนไปส่วนจอง" class="scroll-down-arrow" href="#booking-app-section">↓</a>
+</section>
+<div style="position:relative; z-index:5; background:#fff;">
+<section aria-label="ระบบจอง" class="content-section" id="booking-app-section">
+<h2>จองอุปกรณ์และสารเคมี</h2>
+<main class="main-container">
+<aside aria-label="ตัวเลือกการจอง" class="controls-panel">
+<div class="control-group"><label for="item-type-select">เลือกประเภทรายการที่จอง</label><select disabled="" id="item-type-select"><option disabled="" selected="" value="">-- กรุณาเข้าสู่ระบบ --</option><option value="Glassware">เครื่องแก้ว</option><option value="Instruments">เครื่องมือ</option><option value="Chemicals">สารเคมี</option><option value="Common">ทั่วไป</option></select></div>
+<div class="control-group" id="instrument-group-wrapper" style="display:none;"><label for="instrument-group-select">กลุ่มเครื่องมือ</label><select disabled="" id="instrument-group-select"><option disabled="" selected="" value="">-- เลือกกลุ่มเครื่องมือ --</option><option value="Instruments">เครื่องมือทั่วไป</option><option value="AnaInstruments">เครื่องมือวิเคราะห์</option></select></div>
+<div class="control-group">
+    <label for="item-select">
+        เลือกรายการ 
+        <span id="item-select-loader" style="display: none; vertical-align: middle; margin-left: 8px;">
+            <div class="loader-spinner" style="width:20px; height:20px; border-width:3px;"></div>
+        </span>
+    </label>
+    <select disabled="" id="item-select"><option value="">-- กรุณาเลือกประเภทก่อน --</option></select>
+</div>
+<div id="item-details">
+<h3>รายละเอียด</h3>
+<div id="item-details-content"><p>กรุณาเลือกรายการเพื่อดูข้อมูล</p></div>
+<div aria-live="polite" id="return-section">
+<h3>การคืนอุปกรณ์/สารเคมี</h3>
+<p id="return-hint">เลือกอีเวนต์ของคุณในปฏิทินก่อน แล้วกรอกวัน-เวลาที่คืน พร้อมอัปโหลดรูป</p>
+<div class="control-group"><label for="return-date-input">วันที่คืน</label><input disabled="" id="return-date-input" type="date"/></div>
+<div class="control-group"><label for="return-time-input">เวลาที่คืน</label><input disabled="" id="return-time-input" type="time"/></div>
+<div class="control-group"><label for="return-image-input">อัปโหลดรูป</label><input accept="image/*" disabled="" id="return-image-input" type="file"/><div id="return-preview"><img alt="รูปตัวอย่างการคืน" id="return-preview-img"/></div></div>
+<div class="control-group"><button disabled="" id="return-submit-btn">ส่งยืนยันการคืน</button></div>
+</div>
+</div>
+</aside>
+<section aria-label="ปฏิทิน" class="calendar-panel">
+    <div id="calendar-loader" class="loading-overlay" style="display: none;">
+        <div class="loader-spinner"></div>
+    </div>
+    <h3 id="calendar-item-title" style="text-align: center; margin-top: 0; color: #555; font-weight: 600;">กรุณาเลือกประเภทและรายการเพื่อแสดงปฏิทิน</h3>
+    <div id="calendar"></div>
+    <div id="selection-badge"></div>
+</section>
+</main>
+</section>
+<section aria-label="วิธีการจอง" class="content-section" id="booking-info-section" style="background:var(--light);">
+<h2>วิธีการจอง</h2>
+<p>1. <b>ลงชื่อเข้าใช้</b> ด้วยอีเมลสถาบัน (@kmitl.ac.th)</p>
+<p>2. <b>เลือกประเภทและรายการ</b> ปฏิทินจะปรากฏขึ้นอัตโนมัติ</p>
+<p>3. <b>เลือกวันเวลา</b> แล้วกรอกข้อมูล ยืนยัน</p>
+<p>4. <b>รออนุมัติ</b> เมื่ออนุมัติแล้วจะแสดงในปฏิทินของคุณ</p>
+<p>5. <b>การคืน</b> เลือกอีเวนต์ของตน → กรอกวันและเวลา → อัปโหลดรูปยืนยัน → รออาจารย์อนุมัติ</p>
+</section>
+</div>
+<footer>© 2025 - THITISON ChE30</footer>
+<div aria-labelledby="myBookingsTitle" aria-modal="true" class="modal" id="mybookings-modal" role="dialog">
+<div class="modal-backdrop" onclick="closeMyBookings()"></div>
+<div class="modal-card">
+<h3 id="myBookingsTitle" style="margin:8px 8px 14px 8px;">การจองของฉัน</h3>
+<div id="mybookings-content" style="padding: 0 8px 8px 8px;"><p>กำลังโหลด...</p></div>
+<div style="text-align:right; padding:10px 8px 0 8px;"><button onclick="closeMyBookings()" style="background:#111;color:#fff;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;">ปิด</button></div>
+</div>
+</div>
+<script>
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxaYrRcWu9XHJFR7-_VVKWB0UjegJ5MZJHPedw0KSqhcEScrbMy2M21invQelcPK33EMg/exec';
+    const GOOGLE_CLIENT_ID = '378772402631-qh0d4fdi7c15octrmjcdlvn3tlq5q61b.apps.googleusercontent.com';
+
+    let adminEmails = [];
+    let advisorNames = [];
+    let configLoaded = false;
+
+    let calendar; let currentUser = null; let allItemsCache = {}; let allItemsIndex = []; let selectedBooking = null; let activeEventElement = null;
+
+    const itemTypeSelect = document.getElementById('item-type-select');
+    const instrumentGroupWrapper = document.getElementById('instrument-group-wrapper');
+    const instrumentGroupSelect = document.getElementById('instrument-group-select');
+    const itemSelect = document.getElementById('item-select');
+    const navbar = document.getElementById('main-navbar');
+    const heroVideo = document.getElementById('hero-video');
+    const hamburgerMenu = document.getElementById('hamburger-menu');
+    const navMenu = document.getElementById('nav-menu');
+    const navOverlay = document.getElementById('nav-overlay');
+
+    const returnHint = document.getElementById('return-hint');
+    const returnDateInput = document.getElementById('return-date-input');
+    const returnTimeInput = document.getElementById('return-time-input');
+    const returnInput = document.getElementById('return-image-input');
+    const returnPreview = document.getElementById('return-preview');
+    const returnPreviewImg = document.getElementById('return-preview-img');
+    const returnSubmitBtn = document.getElementById('return-submit-btn');
+    let returnImageBase64 = null;
+    
+    const SPINNER_HTML = `<div style="display:flex; justify-content:center; padding: 20px 0;"><div class="loader-spinner"></div></div>`;
+
+    function toggleMenu(){ const isActive = navMenu.classList.contains('active'); navMenu.classList.toggle('active'); navOverlay.classList.toggle('active'); hamburgerMenu.setAttribute('aria-expanded', !isActive); }
+    hamburgerMenu.addEventListener('click', toggleMenu); navOverlay.addEventListener('click', toggleMenu); navMenu.querySelectorAll('.nav-link').forEach(link => link.addEventListener('click', () => { if (navMenu.classList.contains('active')) { toggleMenu(); } }));
+
+    document.addEventListener('DOMContentLoaded', boot);
+
+    async function boot(){
+      const savedToken = localStorage.getItem('google_id_token');
+      if (savedToken) {
+        const credential = jwt_decode(savedToken);
+        if (credential && credential.exp * 1000 > Date.now()) {
+          currentUser = {
+            email: credential.email.toLowerCase().trim(),
+            given_name: credential.given_name,
+            family_name: credential.family_name,
+            picture: credential.picture
+          };
+        } else {
+          localStorage.removeItem('google_id_token');
+        }
+      }
+
+      fastRenderSignInButton();
+      updateAuthStateUI();
+
+      try {
+        const cfg = await googleScriptCall('getAdvisorConfig');
+        advisorNames = cfg.advisorNames || [];
+        adminEmails = (cfg.adminEmails || []).map(e => String(e).toLowerCase().trim());
+        configLoaded = true;
+        if (currentUser) {
+          updateAuthStateUI();
+        }
+      } catch(e) {
+        configLoaded = true;
+        console.warn('Load advisor config failed', e);
+        Swal.fire({ title: 'Connection Error', text: 'Could not load initial configuration from the server. Please check the connection and refresh.', icon: 'error' });
+      }
+      
+      renderCalendar(false);
+      
+      itemTypeSelect.addEventListener('change', handleTypeChange);
+      instrumentGroupSelect.addEventListener('change', handleInstrumentGroupChange);
+      itemSelect.addEventListener('change', handleItemSelect);
+      window.addEventListener('scroll', handleScroll);
+      returnInput.addEventListener('change', handleReturnImageSelect);
+      returnSubmitBtn.addEventListener('click', handleSubmitReturn);
+      returnDateInput.addEventListener('change', updateReturnSubmitState);
+      returnTimeInput.addEventListener('change', updateReturnSubmitState);
+      document.getElementById('global-search-input').addEventListener('input', onGlobalSearchInput);
+      document.addEventListener('click', (e)=>{ if(!document.getElementById('global-search-suggest').contains(e.target)) hideSuggest(); });
+    }
+
+    function fastRenderSignInButton(){
+      const authContainer = document.getElementById('auth-container');
+      if(!authContainer) return;
+      if(!document.getElementById('g_id_signin_button')){
+        const ph = document.createElement('div'); ph.id = 'g_id_signin_button'; authContainer.appendChild(ph);
+      }
+      const tryRender = () => {
+        if (window.google && google.accounts && google.accounts.id){
+          google.accounts.id.renderButton(document.getElementById('g_id_signin_button'), { theme:"outline", size:"large", shape:"pill", text:"signin" });
+          clearInterval(timer);
+        }
+      };
+      const timer = setInterval(tryRender, 50); tryRender();
+    }
+
+    function handleScroll(){ if (navbar && heroVideo){ const isScrolled = window.scrollY > 50; navbar.classList.toggle('scrolled', isScrolled); const y = window.pageYOffset; heroVideo.style.transform = `translate(-50%, calc(-50% + ${y * 0.4}px))`; } }
+
+    function jwt_decode(token){ try{ return JSON.parse(atob(token.split('.')[1])); } catch(e){ return null; } }
+
+    function handleCredentialResponse(response){
+      localStorage.setItem('google_id_token', response.credential);
+
+      const credential = jwt_decode(response.credential);
+      if (!credential || credential.hd !== 'kmitl.ac.th'){
+        Swal.fire({ title: 'เกิดข้อผิดพลาด', text: 'ต้องใช้อีเมลสถาบัน (@kmitl.ac.th) เท่านั้น', icon: 'error', confirmButtonColor: '#009688' });
+        return;
+      }
+      currentUser = { 
+        email: credential.email.toLowerCase().trim(), 
+        given_name: credential.given_name, 
+        family_name: credential.family_name, 
+        picture: credential.picture 
+      };
+      updateAuthStateUI();
+      const userData = { fullName: `${credential.given_name} ${credential.family_name}`, email: credential.email };
+      googleScriptCall('logUser', userData).catch(console.error);
+      if (navMenu.classList.contains('active')) toggleMenu();
+      window.location.href = '#';
+      prefetchAllItems().catch(()=>{});
+    }
+    
+    function updateAuthStateUI(){
+      const authContainer = document.getElementById('auth-container');
+      const calendarEl = document.getElementById('calendar');
+
+      const oldAdminLink = document.getElementById("admin-nav-item");
+      if (oldAdminLink) oldAdminLink.remove();
+
+      if (currentUser){
+        authContainer.innerHTML = `
+          <div class="user-profile" id="user-profile-btn" tabindex="0" aria-haspopup="true" aria-expanded="false">
+            <img src="${currentUser.picture}" alt="Profile" />
+            <span>${currentUser.given_name}</span>
+            <span class="caret"></span>
+            <div class="user-dropdown" id="user-dropdown">
+              <a href="#" id="my-bookings-link">การจองของฉัน</a>
+              <a href="#" id="signout-link-inline" style="color:#e03131;">ออกจากระบบ</a>
+            </div>
+          </div>`;
+
+        if (configLoaded && adminEmails.includes(currentUser.email)) {
+            const adminItem = document.createElement("li");
+            adminItem.classList.add("nav-item");
+            adminItem.id = "admin-nav-item";
+            adminItem.innerHTML = `<a href="https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit#gid=957174911" class="nav-link" target="_blank" rel="noopener noreferrer">ระบบหลังบ้าน</a>`;
+            navMenu.insertBefore(adminItem, authContainer);
+        }
+        
+        if (!calendar || (calendar && !calendar.getOption('selectable'))) {
+             document.getElementById('calendar-item-title').innerText = 'กรุณาเลือกประเภทและรายการเพื่อแสดงปฏิทิน';
+             calendarEl.innerHTML = '';
+        }
+
+        itemTypeSelect.disabled = false; itemTypeSelect.options[0].text = '-- กรุณาเลือก --';
+
+        const profileBtn = document.getElementById('user-profile-btn');
+        const dropdown = document.getElementById('user-dropdown');
+        const toggleDD = (e) => {
+            e.stopPropagation();
+            const isVisible = dropdown.style.display === 'block';
+            dropdown.style.display = isVisible ? 'none' : 'block';
+            profileBtn.setAttribute('aria-expanded', !isVisible);
+            profileBtn.classList.toggle('open', !isVisible);
+        };
+        profileBtn.addEventListener('click', toggleDD);
+        profileBtn.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); toggleDD(e); } });
+        document.addEventListener('click', ()=>{ dropdown.style.display='none'; profileBtn.classList.remove('open'); profileBtn.setAttribute('aria-expanded', 'false'); });
+        document.getElementById('signout-link-inline').addEventListener('click', (e)=>{ e.preventDefault(); signOut(); });
+        document.getElementById('my-bookings-link').addEventListener('click', (e)=>{ e.preventDefault(); openMyBookings(); });
+        prefetchAllItems().catch(()=>{});
+
+      } else {
+        authContainer.innerHTML = `<div id="g_id_signin_button"></div>`;
+        fastRenderSignInButton();
+        document.getElementById('calendar-item-title').innerText = 'กรุณาเข้าสู่ระบบเพื่อเริ่มใช้งาน';
+        calendarEl.innerHTML = '';
+        itemTypeSelect.disabled = true; itemSelect.disabled = true; instrumentGroupWrapper.style.display='none';
+      }
+      resetReturnSection();
+    }
+
+    function signOut(){
+      localStorage.removeItem('google_id_token');
+      google.accounts.id.disableAutoSelect();
+      currentUser = null;
+      location.reload();
+    }
+
+    function googleScriptCall(func, params){
+      const url = new URL(SCRIPT_URL); url.searchParams.append('func', func); if (params) Object.keys(params).forEach(k => url.searchParams.append(k, params[k]));
+      return fetch(url).then(r => { if(!r.ok) throw new Error(`Server responded with status ${r.status}`); return r.json(); }).then(d => { if(d.error) throw new Error(d.error); return d; });
+    }
+    function googleScriptPost(payload){ return fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'text/plain;charset=utf-8' } }).then(r => r.json()); }
+    
+    function getSheetName(itemType, isBookingSheet = true, instrumentGroup = '') {
+        if (!itemType) return null;
+        let base = itemType;
+        if (itemType === 'Instruments') {
+            base = (instrumentGroup === 'AnaInstruments') ? 'AnaInstruments' : 'Instruments';
+        } else {
+            base = itemType.charAt(0).toUpperCase() + itemType.slice(1);
+        }
+        return isBookingSheet ? `${base}Bookings` : `${base}List`;
+    }
+
+    async function handleTypeChange(){
+      const type = this.value; 
+      itemSelect.innerHTML = '<option value="">-- กรุณาเลือก --</option>'; 
+      itemSelect.disabled = true; 
+      document.getElementById('item-details-content').innerHTML = '<p>กรุณาเลือกรายการเพื่อดูข้อมูล</p>'; 
+      document.getElementById('calendar-item-title').innerText = 'กรุณาเลือกประเภทและรายการเพื่อแสดงปฏิทิน';
+      resetReturnSection(); 
+      renderCalendar(false);
+      if (!currentUser) return;
+
+      if (type === 'Instruments') { 
+        instrumentGroupWrapper.style.display='block'; 
+        instrumentGroupSelect.disabled=false; 
+        instrumentGroupSelect.value=''; 
+        itemSelect.innerHTML = '<option value="">-- กรุณาเลือกกลุ่มเครื่องมือ --</option>'; 
+        return; 
+      }
+      instrumentGroupWrapper.style.display='none'; 
+      instrumentGroupSelect.disabled=true; 
+      await fetchAndFillItems({ type });
+    }
+
+    async function handleInstrumentGroupChange(){ 
+        const g = instrumentGroupSelect.value; 
+        if(!g) return; 
+        await fetchAndFillItems({ type: 'Instruments', instrumentGroup: g }); 
+    }
+
+    async function fetchAndFillItems({ type, instrumentGroup }){
+      const loader = document.getElementById('item-select-loader');
+      loader.style.display = 'inline-block';
+      itemSelect.disabled = true;
+      try {
+        const items = await googleScriptCall('getItems', { type, instrumentGroup });
+        allItemsCache[type + (instrumentGroup||'')] = items;
+        itemSelect.innerHTML = '<option value="">-- กรุณาเลือกรายการ --</option>';
+        items.forEach(item => { const optionText = `${item.ID || item.Id} - ${item.Name}`; const option = new Option(optionText, item.ID || item.Id); itemSelect.appendChild(option); });
+      } catch(e) {
+        itemSelect.innerHTML = '<option>เกิดข้อผิดพลาด</option>'; 
+      } finally {
+        loader.style.display = 'none';
+        itemSelect.disabled = false;
+      }
+    }
+
+    function formatDate(dateString) {
+      if (!dateString || typeof dateString !== 'string') return '-';
+      try { const isoDate = new Date(dateString); if (!isNaN(isoDate.getTime())) { return isoDate.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+        const parts = dateString.split('/'); if (parts.length === 3) { const day = parseInt(parts[0], 10); const month = parseInt(parts[1], 10) - 1; const year = parseInt(parts[2], 10); const customDate = new Date(year, month, day); if (!isNaN(customDate.getTime())) { return customDate.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' }); } }
+        return '-'; } catch (e) { return '-'; }
+    }
+
+    function handleItemSelect(){
+      const selectedId = this.value; 
+      const type = itemTypeSelect.value; 
+      const detailsContent = document.getElementById('item-details-content');
+      const itemTitleEl = document.getElementById('calendar-item-title');
+      resetReturnSection(); 
+
+      if (!selectedId){ 
+        detailsContent.innerHTML = '<p>กรุณาเลือกรายการเพื่อดูข้อมูล</p>';
+        itemTitleEl.innerText = 'กรุณาเลือกประเภทและรายการเพื่อแสดงปฏิทิน';
+        renderCalendar(false);
+        return; 
+      }
+      const instrumentGroup = type === 'Instruments' ? instrumentGroupSelect.value : '';
+      const key = type + (instrumentGroup||'');
+      const item = allItemsCache[key]?.find(i => String(i.ID || i.Id) === String(selectedId));
+      
+      if (item){
+        let html = `<p><b>ID:</b> ${item.ID || item.Id}</p><p><b>Name:</b> ${item.Name}</p>`;
+        if (type === 'Glassware'){ html += `<p><b>Size:</b> ${item.Size || '-'}</p>`; }
+        else if (type === 'Instruments'){ html += `<p><b>Brand:</b> ${item.Brand || '-'}</p>`; }
+        else if (type === 'Chemicals'){
+          html += `<p><b>State:</b> ${item.State || '-'}</p><p><b>Concentration:</b> ${item.Concentration || '-'}</p><p><b>Amount:</b> ${item.Amount || '-'}</p><p><b>Grade:</b> ${item.Grade || '-'}</p><p><b>ExpiredDate:</b> ${formatDate(item.ExpiredDate)}</p>`;
+        }
+        html += `<p><b>Location:</b> ${item.Location || '-'}</p>`; 
+        detailsContent.innerHTML = html; 
+        
+        const selectedOption = itemSelect.options[itemSelect.selectedIndex];
+        itemTitleEl.innerText = `ตารางการจอง: ${selectedOption.text}`;
+        renderCalendar(true);
+      }
+    }
+
+    function renderCalendar(isSelectable = false) {
+      const calendarEl = document.getElementById('calendar');
+      const badge = document.getElementById('selection-badge');
+      if (calendar) calendar.destroy();
+      
+      if (!itemSelect.value && currentUser) {
+          calendarEl.innerHTML = '';
+          return;
+      }
+      
+      calendar = new FullCalendar.Calendar(calendarEl, {
+        locale: 'th',
+        initialView: 'timeGridWeek',
+        headerToolbar: { left: 'prev,next today', center: 'title', right: 'timeGridWeek,timeGridDay,listWeek' },
+        buttonText: { prev: '<', next: '>' },
+        slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+        allDaySlot: false,
+        selectable: isSelectable,
+        selectMirror: true,
+        selectOverlap: false,
+        select: handleCalendarSelect,
+        dateClick: () => hideSelectionBadge(badge),
+        unselect: () => hideSelectionBadge(badge),
+        selectDragStart: () => calendarEl.addEventListener('mousemove', e => updateSelectionBadge(e, calendarEl, badge)),
+        selectDragStop: () => {
+          calendarEl.removeEventListener('mousemove', e => updateSelectionBadge(e, calendarEl, badge));
+          hideSelectionBadge(badge);
+        },
+        eventClick: handleEventClick,
+        loading: function(isLoading) {
+            const loader = document.getElementById('calendar-loader');
+            if (loader) {
+                loader.style.display = isLoading ? 'flex' : 'none';
+            }
+        },
+        events: function(fetchInfo, success, fail) {
+          const itemId = itemSelect.value;
+          if (!itemId || !currentUser) {
+            success([]); return;
+          }
+          googleScriptCall('getEventsById', { itemId })
+            .then(events => success(events))
+            .catch(err => {
+              fail(err);
+              Swal.fire({ title:'ผิดพลาด', text:'ไม่สามารถโหลดข้อมูลการจองได้', icon:'error', confirmButtonColor:'#009688' });
+            });
+        },
+        eventClassNames: function(arg) {
+          const isMine = currentUser && arg.event.extendedProps.bookerEmail === currentUser.email;
+          const r = arg.event.extendedProps.returnStatus;
+          if (isMine && r === 'Problem') return 'problem-event';
+          return isMine ? 'my-event' : 'other-event';
+        },
+        eventContent: function(arg) {
+          const wrapper = document.createElement('div');
+          wrapper.innerHTML = `<div class="fc-event-main-frame"><div class="fc-event-title-container"><div class="fc-event-title fc-sticky">${arg.event.title}</div></div></div>`;
+          if (currentUser && arg.event.extendedProps.bookerEmail === currentUser.email) {
+            const btn = document.createElement('button');
+            btn.className = 'cancel-booking-btn';
+            btn.innerHTML = '&times;';
+            btn.onclick = (e) => { e.stopPropagation(); handleCancelBooking(arg.event); };
+            wrapper.querySelector('.fc-event-main-frame').appendChild(btn);
+          }
+          return { domNodes: [wrapper] };
+        }
+      });
+      calendar.render();
+    }
+
+
+    function updateSelectionBadge(e, calendarEl, badge){ const rect = calendarEl.getBoundingClientRect(); badge.style.left = (e.clientX - rect.left + 10) + 'px'; badge.style.top = (e.clientY - rect.top) + 'px'; badge.innerText = 'ลากเพื่อเลือกช่วงเวลา'; badge.style.display = 'block'; }
+    function hideSelectionBadge(badge){ badge.style.display = 'none'; }
+
+    function handleCalendarSelect(selectionInfo){
+      const itemId = itemSelect.value;
+      if (!itemId) {
+        calendar.unselect();
+        Swal.fire({ title: 'ยังไม่ได้เลือกรายการ', text: 'กรุณาเลือกรายการที่ต้องการจองจากเมนูด้านซ้ายก่อน', icon: 'warning', confirmButtonColor: '#009688' });
+        return;
+      }
+
+      if (!currentUser){ Swal.fire({ title:'กรุณาเข้าสู่ระบบ', text:'คุณต้องเข้าสู่ระบบก่อนทำการจอง', icon:'warning', confirmButtonColor:'#009688' }); return; }
+      
+      const itemNameWithId = itemSelect.options[itemSelect.selectedIndex].text;
+      const itemName = itemNameWithId.includes(' - ') ? itemNameWithId.split(' - ')[1].trim() : itemNameWithId;
+      const itemType = itemTypeSelect.value;
+      const instrumentGroup = itemType === 'Instruments' ? instrumentGroupSelect.value : '';
+      const bookingSheet = getSheetName(itemType, true, instrumentGroup);
+
+      Swal.fire({
+        title: 'ยืนยันการจอง',
+        html: `
+          <div class="swal-booking-time">${selectionInfo.start.toLocaleDateString('th-TH', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'})}<br>เวลา ${selectionInfo.start.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})} - ${selectionInfo.end.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})} น.</div>
+          <div class="swal-grid">
+            <div class="swal-field full"><label>ชื่อ-สกุล</label><input id="swal-fullName" value="${currentUser.given_name} ${currentUser.family_name}" readonly /></div>
+            <div class="swal-field full"><label>อีเมล</label><input id="swal-email" value="${currentUser.email}" readonly /></div>
+            <div class="swal-field"><label>รหัสนักศึกษา</label><input id="swal-studentId" placeholder="รหัสนักศึกษา" /></div>
+            <div class="swal-field"><label>ระดับการศึกษา</label><select id="swal-educationLevel"><option value="ปริญญาตรี">ปริญญาตรี</option><option value="ปริญญาโท">ปริญญาโท</option><option value="ปริญญาเอก">ปริญญาเอก</option></select></div>
+            <div class="swal-field full"><label>ในวิชา/โครงงาน</label><select id="swal-subject"><option value="วิทยานิพนธ์">วิทยานิพนธ์</option><option value="โครงงานวิศวกรรมเคมี">โครงงานวิศวกรรมเคมี</option><option value="อื่นๆ">อื่นๆ</option></select><div class="swal-footnote">ถ้าเลือก “อื่นๆ” ระบบจะให้กรอกชื่อวิชา</div></div>
+            <div class="swal-field full" id="swal-other-subject-group" style="display:none;"><label>กรุณาระบุชื่อวิชา/โครงงาน</label><input id="swal-otherSubject" placeholder="ชื่อวิชา/โครงงาน" /></div>
+            <div class="swal-field full"><label>อาจารย์ที่ปรึกษา</label><select id="swal-advisor">${(advisorNames && advisorNames.length > 0) ? ['<option value="" disabled selected>-- กรุณาเลือก --</option>', ...advisorNames.map(n => `<option value="${n}">${n}</option>`)].join('') : '<option value="" disabled selected>-- ยังไม่มีข้อมูล --</option>'}</select></div>
+          </div>`,
+        showCancelButton: true, confirmButtonText: 'ยืนยัน', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#009688',
+        didOpen: () => { document.getElementById('swal-subject').addEventListener('change', (e)=>{ document.getElementById('swal-other-subject-group').style.display = e.target.value === 'อื่นๆ' ? 'block' : 'none'; }); },
+        preConfirm: () => {
+          const studentId = document.getElementById('swal-studentId').value.trim(); const advisor = document.getElementById('swal-advisor').value; const subjectSel = document.getElementById('swal-subject').value; const otherSub = document.getElementById('swal-otherSubject').value.trim();
+          if (!studentId || !advisor || (subjectSel === 'อื่นๆ' && !otherSub)){ Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบถ้วน'); return false; }
+          return { action: 'submitBooking', data: { fullName: `${currentUser.given_name} ${currentUser.family_name}`, email: currentUser.email, studentId, educationLevel: document.getElementById('swal-educationLevel').value, subject: (subjectSel === 'อื่นๆ' ? otherSub : subjectSel), advisor, itemId, itemName, itemType, instrumentGroup, bookingSheet, startTime: selectionInfo.start.toISOString(), endTime: selectionInfo.end.toISOString() } };
+        }
+      }).then((result)=>{
+        if (result.isConfirmed){
+          Swal.fire({ title:'กำลังส่งข้อมูล...', allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
+          googleScriptPost(result.value).then(res=>{ if (res.result === 'success'){ Swal.fire({ icon:'success', title:'จองสำเร็จ!', text:'ข้อมูลของคุณถูกส่งไปรอการอนุมัติแล้ว', confirmButtonColor:'#009688' }).then(()=>renderCalendar(true)); calendar.unselect(); } else { throw new Error(res.error || 'Unknown error'); } }).catch(err=>{ Swal.fire({ icon:'error', title:'เกิดข้อผิดพลาด', text:`ไม่สามารถส่งข้อมูลได้: ${err.message}`, confirmButtonColor:'#009688' }); });
+        } else {
+            calendar.unselect();
+        }
+      });
+    }
+
+    function handleEventClick(info) {
+      if (activeEventElement) { activeEventElement.classList.remove('event-selected'); }
+      if (!currentUser || info.event.extendedProps.bookerEmail !== currentUser.email) { resetReturnSection(); return; }
+      info.el.classList.add('event-selected'); activeEventElement = info.el; selectedBooking = { sheetName: info.event.extendedProps.sheetName, row: info.event.extendedProps.row, eventId: info.event.id, title: info.event.title };
+      const now = new Date(); returnDateInput.value = now.toISOString().slice(0,10); returnTimeInput.value = now.toTimeString().slice(0,5); returnDateInput.disabled = false; returnTimeInput.disabled = false; returnHint.textContent = `เลือกการจอง: “${info.event.title}” แล้ว กรอกวัน-เวลาที่คืนและอัปโหลดรูปได้เลย`; returnInput.disabled = false; updateReturnSubmitState(); }
+
+    function updateReturnSubmitState(){ const ready = selectedBooking && returnImageBase64 && returnDateInput.value && returnTimeInput.value; returnSubmitBtn.disabled = !ready; }
+
+    function handleReturnImageSelect(e){ const file = e.target.files?.[0]; if (!file){ returnPreview.style.display='none'; returnImageBase64 = null; updateReturnSubmitState(); return; } const reader = new FileReader(); reader.onload = function(){ returnImageBase64 = reader.result; returnPreviewImg.src = returnImageBase64; returnPreview.style.display = 'block'; updateReturnSubmitState(); }; reader.readAsDataURL(file); }
+
+    function handleSubmitReturn(){ if (!selectedBooking || !returnImageBase64 || !returnDateInput.value || !returnTimeInput.value) return; Swal.fire({ title:'กำลังอัปโหลด...', allowOutsideClick:false, didOpen:()=>Swal.showLoading() }); const payload = { action: 'submitReturn', data: { sheetName: selectedBooking.sheetName, row: selectedBooking.row, eventId: selectedBooking.eventId, itemId: itemSelect.value, imageDataUrl: returnImageBase64, bookerEmail: currentUser.email, returnDate: returnDateInput.value, returnTime: returnTimeInput.value } }; googleScriptPost(payload).then(res=>{ if (res.result === 'success'){ Swal.fire({ icon:'success', title:'ส่งคำขอคืนแล้ว', text:'รออาจารย์ตรวจรูปและอนุมัติ', confirmButtonColor:'#009688' }); resetReturnSection(); renderCalendar(true); }else{ throw new Error(res.error || 'อัปโหลดไม่สำเร็จ'); } }).catch(err=>{ Swal.fire({ icon:'error', title:'เกิดข้อผิดพลาด', text: String(err.message || err), confirmButtonColor:'#009688' }); }); }
+
+    function handleCancelBooking(event){ Swal.fire({ title:'ยืนยันการยกเลิก', text:'คุณต้องการยกเลิกการจองนี้ใช่ไหม?', icon:'warning', showCancelButton:true, confirmButtonColor:'#d33', cancelButtonColor:'#3085d6', confirmButtonText:'ใช่, ยกเลิก', cancelButtonText:'ไม่' }).then((result)=>{ if (result.isConfirmed){ const b = event.extendedProps; googleScriptCall('cancelBooking', { sheetName:b.sheetName, row:b.row, eventId:event.id }).then(res=>{ if (res.result === 'success'){ Swal.fire({ icon:'success', title:'สำเร็จ!', text:'การจองของคุณถูกยกเลิกแล้ว', confirmButtonColor:'#009688' }).then(() => { resetReturnSection(); renderCalendar(true); }); }else{ throw new Error(res.error); } }).catch(err=>{ Swal.fire({ icon:'error', title:'ผิดพลาด', text:`ไม่สามารถยกเลิกการจองได้: ${err.message}`, confirmButtonColor:'#009688' }); }); } }); }
+
+    function resetReturnSection(){ if (activeEventElement) { activeEventElement.classList.remove('event-selected'); activeEventElement = null; } selectedBooking = null; returnImageBase64 = null; returnPreview.style.display = 'none'; returnPreviewImg.src = ''; returnDateInput.value = ''; returnTimeInput.value = ''; returnDateInput.disabled = true; returnTimeInput.disabled = true; returnInput.value = ''; returnInput.disabled = true; returnSubmitBtn.disabled = true; returnHint.textContent = 'เลือกอีเวนต์ของคุณในปฏิทินก่อน แล้วกรอกวัน-เวลาที่คืน พร้อมอัปโหลดรูป'; }
+
+    async function prefetchAllItems(){
+      try{
+        const types = ['Glassware','Chemicals','Common'];
+        const results = await Promise.allSettled([
+          ...types.map(t => googleScriptCall('getItems', { type:t })),
+          googleScriptCall('getItems', { type:'Instruments', instrumentGroup:'Instruments' }),
+          googleScriptCall('getItems', { type:'Instruments', instrumentGroup:'AnaInstruments' }),
+        ]);
+        allItemsIndex = []; let idx = 0;
+        const pushAll = (arr, meta)=>{ (arr||[]).forEach(it=>{ allItemsIndex.push({ ...it, __type: meta.type, __group: meta.group||'', __idx: idx++ }); }); };
+        let r=0; for(const t of types){ const p = results[r++]; if(p.status==='fulfilled') pushAll(p.value,{type:t}); }
+        const gen = results[r++]; if(gen.status==='fulfilled') pushAll(gen.value,{type:'Instruments', group:'Instruments'});
+        const ana = results[r++]; if(ana.status==='fulfilled') pushAll(ana.value,{type:'Instruments', group:'AnaInstruments'});
+      }catch(e){ console.warn('Prefetch items failed', e); }
+    }
+
+    let searchDebounce;
+    function onGlobalSearchInput(e){
+      const q = e.target.value.trim().toLowerCase(); if(searchDebounce) clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(()=>{ showSuggest(q); }, 120);
+    }
+    function hideSuggest(){ const box = document.getElementById('global-search-suggest'); box.style.display='none'; box.innerHTML=''; }
+    function showSuggest(q){
+      const box = document.getElementById('global-search-suggest'); if(!q){ hideSuggest(); return; }
+      const items = (allItemsIndex||[]).filter(it => (it.Name||'').toLowerCase().includes(q) || ((it.ID || it.Id)||'').toLowerCase().includes(q)).slice(0, 12);
+      if(!items.length){ box.style.display='none'; box.innerHTML=''; return; }
+      box.innerHTML = items.map(it=>`<div class="search-suggest-item" data-id="${it.ID || it.Id}" data-type="${it.__type}" data-group="${it.__group}"><b>${it.ID || it.Id}</b> - ${it.Name} <small style="color:#6b7280;">(${it.__type}${it.__type==='Instruments'?' · '+(it.__group==='AnaInstruments'?'เครื่องมือวิเคราะห์':'เครื่องมือทั่วไป'):''})</small></div>`).join('');
+      box.style.display='block';
+      [...box.querySelectorAll('.search-suggest-item')].forEach(el=>el.addEventListener('click', ()=>{
+        selectFromSuggest({ id:el.dataset.id, type:el.dataset.type, group:el.dataset.group });
+      }));
+    }
+
+    async function selectFromSuggest({id, type, group}){
+      itemTypeSelect.value = type;
+      await handleTypeChange();
+
+      if(type==='Instruments'){
+        instrumentGroupSelect.value = group || 'Instruments';
+        await handleInstrumentGroupChange();
+      }
+
+      itemSelect.value = id;
+      handleItemSelect();
+
+      hideSuggest();
+      window.location.href = '#booking-app-section';
+    }
+    
+    async function openMyBookings(){
+      if(!currentUser){ Swal.fire({ icon:'info', title:'โปรดเข้าสู่ระบบ', confirmButtonColor:'#009688' }); return; }
+      const modal = document.getElementById('mybookings-modal'); 
+      const cont = document.getElementById('mybookings-content'); 
+      modal.classList.add('active'); 
+      cont.innerHTML = SPINNER_HTML;
+      
+      try{
+        const data = await googleScriptCall('getMyBookings', { email: currentUser.email });
+        
+        if(!Array.isArray(data) || !data.length){ 
+          cont.innerHTML = '<p style="text-align:center; padding: 20px 0;">ยังไม่มีประวัติการจอง</p>'; 
+          return; 
+        }
+        
+        cont.innerHTML = data.map(row => {
+          let statusText = '';
+          let statusClass = '';
+
+          if (row.Status.includes('รอดำเนินการ')) {
+              statusText = 'รออนุมัติการจอง';
+              statusClass = 'status-blue';
+          } else if (row.Status.includes('Rejected') || row.Status.includes('ปฏิเสธ')) {
+              statusText = 'ปฏิเสธการจอง';
+              statusClass = 'status-red';
+          } else if (row.Status.includes('Approved')) {
+              if (row.ReturnStatus === 'Returned') {
+                  statusText = 'ยืนยันการคืนแล้ว';
+                  statusClass = 'status-green';
+              } else if (row.ReturnStatus === 'Problem') {
+                  statusText = 'ปฏิเสธการคืน';
+                  statusClass = 'status-red';
+              } else {
+                  statusText = 'จองแล้ว';
+                  statusClass = 'status-green';
+              }
+          } else {
+              statusText = row.Status;
+              statusClass = '';
+          }
+
+          const startDate = new Date(row.Start);
+          const endDate = new Date(row.End);
+          const dateString = startDate.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' });
+          const timeString = `${startDate.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} - ${endDate.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}`;
+
+          return `
+            <div class="booking-item">
+              <div style="display:flex; justify-content:space-between; gap:8px; align-items:start;">
+                <div>
+                  <b style="font-size: 1.05em;">${row.ItemName || '-'}</b>
+                  <div style="color:#555; font-size:14px; margin-top:4px;">${dateString} ・ ${timeString} น.</div>
+                </div>
+                <div class="status-pill ${statusClass}">${statusText}</div>
+              </div>
+            </div>`;
+        }).join('');
+      } catch(e) { 
+        cont.innerHTML = `<p style="text-align:center; color: #ef4444; padding: 20px 0;">เกิดข้อผิดพลาดในการโหลดข้อมูลการจอง: ${e.message}</p>`; 
+      }
+    }
+    function closeMyBookings(){ document.getElementById('mybookings-modal').classList.remove('active'); }
+  </script>
+</body>
+</html>

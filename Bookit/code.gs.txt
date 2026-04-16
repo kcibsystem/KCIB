@@ -1,0 +1,398 @@
+/***************************************************************
+ * BookIt Booking System (Apps Script) - v5 (Button Style Fix)
+ ***************************************************************/
+
+const SPREADSHEET_ID = "1nxM6_jiawyMjYiajFPgDbuUR-u05V-1HhdhHmurg2uY";
+const CALENDAR_ID    = "primary";
+
+/* ========================== CONFIG (Email via AdvisorEmail sheet) ========================== */
+function readAdvisorConfig_() {
+  const ss = getSpreadsheet();
+  const sh = ss.getSheetByName("AdvisorEmail");
+  if (!sh) {
+    throw new Error("Sheet 'AdvisorEmail' not found. Please create it with specified columns.");
+  }
+  const values = sh.getDataRange().getValues();
+  if (!values || values.length < 2) {
+    return { advisorMap: {}, advisorNames: [], adminEmails: [], alwaysReserveEmails: [], alwaysReturnEmails: [] };
+  }
+  const headers = values[0].map(h => String(h).trim());
+  const idx = (name) => headers.findIndex(h => String(h).replace(/\s+/g, '') === String(name).replace(/\s+/g, ''));
+  const cName = idx("AdvisorName");
+  const cEmail = idx("Email");
+  const cSeeBackend = idx("เห็นระบบหลังบ้าน");
+  const cAlwaysReserve = idx("AlwaysReserveNotify");
+  const cAlwaysReturn = idx("AlwaysReturnNotify");
+  const cLabelAdvisor = idx("LabelAdvisor");
+
+  const advisorMap = {};
+  const advisorNames = [];
+  const adminEmails = [];
+  const alwaysReserveEmails = new Set();
+  const alwaysReturnEmails = new Set();
+  
+  for (let r = 1; r < values.length; r++) {
+    const row = values[r];
+    const name = String(row[cName] || "").trim();
+    const email = String(row[cEmail] || "").trim();
+    if (!name || !email) continue;
+    
+    const seeBackend = (String(row[cSeeBackend] || "0").trim() === "1");
+    const alwaysReserve = (String(row[cAlwaysReserve] || "0").trim() === "1");
+    const alwaysReturn = (String(row[cAlwaysReturn] || "0").trim() === "1");
+    const labelAdvisor = (String(row[cLabelAdvisor] || "0").trim() === "1");
+
+    advisorMap[name] = email;
+    if (labelAdvisor) advisorNames.push(name);
+    if (seeBackend) adminEmails.push(email);
+    if (alwaysReserve) alwaysReserveEmails.add(email);
+    if (alwaysReturn) alwaysReturnEmails.add(email);
+  }
+
+  return {
+    advisorMap,
+    advisorNames,
+    adminEmails,
+    alwaysReserveEmails: Array.from(alwaysReserveEmails),
+    alwaysReturnEmails: Array.from(alwaysReturnEmails)
+  };
+}
+
+function getAdvisorConfig() {
+  const cfg = readAdvisorConfig_();
+  return {
+    advisorNames: cfg.advisorNames,
+    adminEmails: cfg.adminEmails
+  };
+}
+
+/* ========================== UTIL ========================== */
+const COL = {
+  TS: 1, FULLNAME: 2, EMAIL: 3, STUDENT: 4, EDU: 5, SUBJECT: 6,
+  ITEM_ID: 7, ITEM_NAME: 8, ADVISOR: 9, START: 10, END: 11,
+  STATUS: 12, EVENT_ID: 13, RETURN_STATUS: 14, RETURN_IMAGE: 15,
+  RETURN_DATE: 16, RETURN_TIME: 17
+};
+
+function getSpreadsheet() { return SpreadsheetApp.openById(SPREADSHEET_ID); }
+
+function getSheetName(itemType, isBookingSheet = true, instrumentGroup = '') {
+    if (!itemType) return null;
+    let base = itemType;
+    if (itemType === 'Instruments') {
+        base = (instrumentGroup === 'AnaInstruments') ? 'AnaInstruments' : 'Instruments';
+    } else {
+        base = itemType.charAt(0).toUpperCase() + itemType.slice(1);
+    }
+    return isBookingSheet ? `${base}Bookings` : `${base}List`;
+}
+
+function jsonOut(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+/* ================ RENDER PAGES ================ */
+function renderProcessorPage(action, sheet, row) {
+  const webUrl = ScriptApp.getService().getUrl();
+  const html = `
+    <!DOCTYPE html>
+    <html lang="th">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai+Looped:wght@400;600;700&display=swap" rel="stylesheet">
+      <title>กำลังดำเนินการ...</title>
+      <style>
+        html,body,*{font-family:'IBM Plex Sans Thai Looped',system-ui,sans-serif;}
+        body{margin:0;background:#f6f7f9;min-height:100vh;display:grid;place-items:center}
+        .card{background:#fff;width:min(720px,92vw);padding:48px 36px;border-radius:22px;box-shadow:0 20px 45px rgba(0,0,0,.08);text-align:center;transition: all .3s ease;}
+        .icon{margin-bottom:18px; height: 80px; display: grid; place-items: center;}
+        h1{margin:10px 0 8px;font-size:2rem;font-weight:700;color:#222}
+        p{margin:0;font-size:1.025rem;color:#6b7280}
+        .spinner{border:5px solid #f3f3f3;border-top:5px solid #009688;border-radius:50%;width:50px;height:50px;animation:spin 1s linear infinite;}
+        @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="icon" id="icon-container">
+          <div class="spinner"></div>
+        </div>
+        <h1 id="title">กำลังดำเนินการ...</h1>
+        <p id="subtitle">กรุณารอสักครู่ ระบบกำลังประมวลผลคำขอของคุณ</p>
+      </div>
+      <script>
+        async function processAction() {
+          const url = "${webUrl}";
+          const formData = new FormData();
+          formData.append("action", "${action}");
+          formData.append("sheet", "${sheet}");
+          formData.append("row", "${row}");
+
+          try {
+            const response = await fetch(url, { method: 'POST', body: formData });
+            if (!response.ok) throw new Error('Network response was not ok');
+            const result = await response.json();
+            
+            document.getElementById('title').textContent = result.title || 'เกิดข้อผิดพลาด';
+            document.getElementById('subtitle').textContent = result.subtitle || 'ไม่สามารถดำเนินการได้';
+            
+            const iconContainer = document.getElementById('icon-container');
+            if(result.status === 'success') {
+              iconContainer.innerHTML = '<svg width="80" height="80" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#2f9e44" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+            } else {
+              iconContainer.innerHTML = '<svg width="80" height="80" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="#d90429" stroke-width="2.5" stroke-linecap="round"/></svg>';
+            }
+          } catch (error) {
+            document.getElementById('title').textContent = 'เกิดข้อผิดพลาดร้ายแรง';
+            document.getElementById('subtitle').textContent = error.message;
+            document.getElementById('icon-container').innerHTML = '<svg width="80" height="80" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="#d90429" stroke-width="2.5" stroke-linecap="round"/></svg>';
+          }
+        }
+        window.onload = processAction;
+      </script>
+    </body>
+    </html>`;
+  return HtmlService.createHtmlOutput(html).setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/* =========================== ROUTER =========================== */
+function doGet(e) {
+  if (e.parameter.action === 'process_from_email') {
+    return renderProcessorPage(e.parameter.type, e.parameter.sheet, e.parameter.row);
+  }
+  if (e.parameter.func) {
+    try {
+      let result;
+      switch (e.parameter.func) {
+        case "getItems": result = getItems(e.parameter.type, e.parameter.instrumentGroup); break;
+        case "getEventsById": result = getEventsById(e.parameter.itemId); break;
+        case "logUser": result = logUser(e.parameter.fullName, e.parameter.email); break;
+        case "cancelBooking": result = cancelBooking(e.parameter.sheetName, e.parameter.row, e.parameter.eventId); break;
+        case "getAdvisorConfig": result = getAdvisorConfig(); break;
+        case "getMyBookings": result = getMyBookings(e.parameter.email); break;
+        default: throw new Error("Invalid function call");
+      }
+      return jsonOut(result);
+    } catch (err) {
+      return jsonOut({ error: String(err.message || err) });
+    }
+  }
+  return jsonOut({ error: "Invalid request" });
+}
+
+function doPost(e) {
+  if (e.parameter && e.parameter.action) {
+    const action = e.parameter.action;
+    const sheetName = e.parameter.sheet;
+    const row = parseInt(e.parameter.row, 10);
+    try {
+      if (action === "approve" || action === "reject") {
+        const r = processRequest(action, sheetName, row);
+        if (r.status === "success") return jsonOut({ status: "success", title: "อนุมัติการจองสำเร็จ!", subtitle: "ระบบได้สร้างกิจกรรมในปฏิทิน และส่งคำเชิญไปยังผู้จองเรียบร้อยแล้ว" });
+        if (r.status === "rejected") return jsonOut({ status: "success", title: "ปฏิเสธการจองสำเร็จ!", subtitle: "ระบบได้บันทึกการปฏิเสธเรียบร้อยแล้ว" });
+        if (r.status === "already_processed") return jsonOut({ status: "success", title: "ดำเนินการไปแล้ว", subtitle: "คำขอนี้ถูกดำเนินการไปแล้วก่อนหน้านี้" });
+        return jsonOut({ status: "error", title: "เกิดข้อผิดพลาด", subtitle: r.message || "ไม่สามารถดำเนินการได้" });
+      }
+      if (action === "approveReturn" || action === "rejectReturn") {
+        const r2 = processReturn(action, sheetName, row);
+        if (r2.status === "return_ok") return jsonOut({ status: "success", title: "อนุมัติการคืนสำเร็จ!", subtitle: "ยืนยันการคืนอุปกรณ์เรียบร้อย" });
+        if (r2.status === "return_problem") return jsonOut({ status: "success", title: "บันทึกการปฏิเสธการคืนสำเร็จ!", subtitle: "กรุณาติดต่อผู้จองเพื่อดำเนินการแก้ไขต่อไป" });
+        if (r2.status === "already_processed") return jsonOut({ status: "success", title: "ดำเนินการไปแล้ว", subtitle: "รายการคืนนี้ได้รับการยืนยันไปก่อนหน้าแล้ว" });
+        return jsonOut({ status: "error", title: "เกิดข้อผิดพลาด", subtitle: r2.message || "ไม่สามารถดำเนินการได้" });
+      }
+    } catch (err) {
+      return jsonOut({ status: "error", title: "เกิดข้อผิดพลาดร้ายแรง", subtitle: String(err.message || err) });
+    }
+  }
+  try {
+    const payload = JSON.parse(e.postData.contents || "{}");
+    let result;
+    switch (payload.action) {
+      case "submitBooking": result = submitBooking(payload.data); break;
+      case "submitReturn": result = submitReturn(payload.data); break;
+      default: throw new Error("Invalid action");
+    }
+    return jsonOut(result);
+  } catch (err) {
+    Logger.log("doPost Error: " + err.message);
+    return jsonOut({ error: String(err.message || err) });
+  }
+}
+
+/* =========================== CORE =========================== */
+function getItems(itemType, instrumentGroup) {
+    if (!itemType) throw new Error("Item type is required.");
+    let sheetName = getSheetName(itemType, false, instrumentGroup);
+    const sheet = getSpreadsheet().getSheetByName(sheetName);
+    if (!sheet) return [];
+    const data = sheet.getDataRange().getValues();
+    const headers = data.shift().map(h => String(h).replace(/\s+/g, ""));
+    return data.map(row => {
+        const item = {};
+        headers.forEach((header, idx) => {
+            item[header] = (row[idx] instanceof Date) ? Utilities.formatDate(row[idx], Session.getScriptTimeZone(), "dd/MM/yyyy") : row[idx];
+        });
+        return item;
+    });
+}
+
+function getEventsById(itemId) {
+    const allBookingSheets = ["GlasswareBookings", "ChemicalsBookings", "CommonBookings", "InstrumentsBookings", "AnaInstrumentsBookings"];
+    const events = [];
+    allBookingSheets.forEach(sheetName => {
+        const sheet = getSpreadsheet().getSheetByName(sheetName);
+        if (!sheet) return;
+        const data = sheet.getDataRange().getValues();
+        const headers = data[0].map(h => h.toString().trim());
+        const itemIdCol = headers.indexOf("ItemID");
+        if (itemIdCol === -1) return;
+        for (let i = 1; i < data.length; i++) {
+            const row = data[i];
+            if (String(row[itemIdCol]) === String(itemId)) {
+                const status = headers.indexOf("Status") > -1 ? row[headers.indexOf("Status")] : '';
+                if (status.includes('Cancelled') || status.includes('Rejected') || status.includes('ยกเลิก') || status.includes('ปฏิเสธ')) continue;
+                events.push({
+                    id: headers.indexOf("EventId") > -1 ? row[headers.indexOf("EventId")] : `row${i+1}`,
+                    title: headers.indexOf("FullName") > -1 ? row[headers.indexOf("FullName")] : 'Booking',
+                    start: headers.indexOf("StartISO") > -1 ? new Date(row[headers.indexOf("StartISO")]).toISOString() : new Date().toISOString(),
+                    end: headers.indexOf("EndISO") > -1 ? new Date(row[headers.indexOf("EndISO")]).toISOString() : new Date().toISOString(),
+                    extendedProps: {
+                        bookerEmail: headers.indexOf("Email") > -1 ? row[headers.indexOf("Email")] : '',
+                        sheetName: sheetName,
+                        row: i + 1,
+                        returnStatus: headers.indexOf("ReturnStatus") > -1 ? row[headers.indexOf("ReturnStatus")] : ''
+                    }
+                });
+            }
+        }
+    });
+    return events;
+}
+
+function logUser(fullName, email) {
+  const sh = getSpreadsheet().getSheetByName("UserLogs");
+  if (!sh) throw new Error("Sheet 'UserLogs' not found.");
+  sh.appendRow([new Date(), fullName, (email || '').toLowerCase().trim()]);
+  return { result: "success" };
+}
+
+function submitBooking(data) {
+  const sheetName = data.bookingSheet || getSheetName(data.itemType, true, data.instrumentGroup);
+  const sh = getSpreadsheet().getSheetByName(sheetName);
+  if (!sh) throw new Error(`Sheet '${sheetName}' not found.`);
+  const itemNameOnly = (String(data.itemName || "")).includes(' - ') ? String(data.itemName).split(' - ')[1].trim() : String(data.itemName || "");
+  const newRow = [new Date(), data.fullName, data.email, data.studentId, data.educationLevel, data.subject, data.itemId, itemNameOnly, data.advisor, data.startTime, data.endTime, "รอดำเนินการ", "", "", "", "", ""];
+  sh.appendRow(newRow);
+  const rowNo = sh.getLastRow();
+  const cfg = readAdvisorConfig_();
+  const recipients = new Set();
+  if (data.advisor && cfg.advisorMap[data.advisor]) { recipients.add(cfg.advisorMap[data.advisor]); }
+  cfg.alwaysReserveEmails.forEach(e => recipients.add(e));
+  const toList = Array.from(recipients).join(',');
+  if (toList) {
+    const webUrl = ScriptApp.getService().getUrl();
+    const approveUrl = `${webUrl}?action=process_from_email&type=approve&sheet=${encodeURIComponent(sheetName)}&row=${rowNo}`;
+    const rejectUrl  = `${webUrl}?action=process_from_email&type=reject&sheet=${encodeURIComponent(sheetName)}&row=${rowNo}`;
+    MailApp.sendEmail({ to: toList, subject: `[Book It!] มีรายการจองใหม่รออนุมัติ: ${itemNameOnly}`, replyTo: data.email, name: "Book It! System", htmlBody: `
+        <div style="font-family: Arial, sans-serif; font-size: 14px;">
+          <h3>เรียน อาจารย์ ${data.advisor},</h3>
+          <p>มีรายการจองใหม่รอการอนุมัติในระบบ Book It!</p>
+          <p><strong>รายละเอียดการจอง:</strong></p>
+          <ul style="list-style-type: none; padding-left: 0;">
+            <li><strong>ผู้จอง:</strong> ${data.fullName} (${data.email})</li>
+            <li><strong>รายการ:</strong> ${itemNameOnly} (ID: ${data.itemId})</li>
+            <li><strong>วัน-เวลา:</strong> ${new Date(data.startTime).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })} - ${new Date(data.endTime).toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' })} น.</li>
+          </ul>
+          <p style="margin-top: 20px;">
+            <a href="${approveUrl}" style="background-color: #28a745; color: white; padding: 12px 20px; text-align: center; text-decoration: none; display: inline-block; border-radius: 8px; font-weight: bold; margin-right: 10px;">Approve</a>
+            <a href="${rejectUrl}" style="background-color: #dc3545; color: white; padding: 12px 20px; text-align: center; text-decoration: none; display: inline-block; border-radius: 8px; font-weight: bold;">Reject</a>
+          </p>
+        </div>`
+    });
+  }
+  return { result: "success", emailedTo: toList };
+}
+
+function processRequest(action, sheetName, row) {
+  const ss = getSpreadsheet();
+  const sh = ss.getSheetByName(sheetName);
+  if (!sh) return { status: "error", message: `Sheet '${sheetName}' not found.` };
+  const rowNo = parseInt(row, 10);
+  const statusCell = sh.getRange(rowNo, COL.STATUS);
+  if (statusCell.getValue() !== "รอดำเนินการ") { return { status: "already_processed" }; }
+  const data = sh.getRange(rowNo, 1, 1, COL.EVENT_ID).getValues()[0];
+  const bookerEmail = data[COL.EMAIL - 1];
+  const itemName    = data[COL.ITEM_NAME - 1];
+  const startTime   = new Date(data[COL.START - 1]);
+  const endTime     = new Date(data[COL.END - 1]);
+  if (action === "approve") {
+    const desc = JSON.stringify({ bookerEmail, status: "Approved", sheetName, row: rowNo });
+    const calendar = CalendarApp.getCalendarById(CALENDAR_ID) || CalendarApp.getDefaultCalendar();
+    const ev = calendar.createEvent(`${itemName} (ID: ${data[COL.ITEM_ID - 1]})`, startTime, endTime, { description: desc, guests: bookerEmail, sendInvites: true });
+    sh.getRange(rowNo, COL.EVENT_ID).setValue(ev.getId());
+    statusCell.setValue("Approved");
+    return { status: "success" };
+  }
+  if (action === "reject") {
+    statusCell.setValue("Rejected");
+    return { status: "rejected" };
+  }
+  return { status: "error", message: "Invalid action" };
+}
+
+function submitReturn(data) {
+  const sh = getSpreadsheet().getSheetByName(data.sheetName);
+  if (!sh) throw new Error(`Sheet '${data.sheetName}' not found.`);
+  const row = parseInt(data.row, 10);
+  if (!data.imageDataUrl) throw new Error("Missing image");
+  const folder = getOrCreateFolder_("BookIt_Return_Photos");
+  const blob = dataUrlToBlob_(data.imageDataUrl);
+  const file = folder.createFile(blob).setName(`return_${data.itemId}_${Date.now()}.jpg`);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  const fileUrl = file.getUrl();
+  sh.getRange(row, COL.RETURN_STATUS, 1, 4).setValues([[ "รออนุมัติการคืน", fileUrl, data.returnDate||"", data.returnTime||"" ]]);
+  const cfg = readAdvisorConfig_();
+  const advisorName = sh.getRange(row, COL.ADVISOR).getValue();
+  const itemName    = sh.getRange(row, COL.ITEM_NAME).getValue();
+  const bookerEmail = sh.getRange(row, COL.EMAIL).getValue();
+  const recipients = new Set();
+  if (cfg.advisorMap[advisorName]) recipients.add(cfg.advisorMap[advisorName]);
+  cfg.alwaysReturnEmails.forEach(e => recipients.add(e));
+  if (recipients.size === 0) recipients.add(bookerEmail);
+  const to = Array.from(recipients).join(',');
+  const webUrl = ScriptApp.getService().getUrl();
+  const approveUrl = `${webUrl}?action=process_from_email&type=approveReturn&sheet=${encodeURIComponent(data.sheetName)}&row=${row}`;
+  const rejectUrl  = `${webUrl}?action=process_from_email&type=rejectReturn&sheet=${encodeURIComponent(data.sheetName)}&row=${row}`;
+  MailApp.sendEmail({ to, subject: `[Book It!] มีรายการขอคืนอุปกรณ์: ${itemName}`, name: "Book It! System", htmlBody: `
+      <div style="font-family: Arial, sans-serif; font-size: 14px;">
+        <h3>รายการขอคืนอุปกรณ์</h3>
+        <p><strong>ผู้จอง:</strong> ${bookerEmail}</p>
+        <p><strong>รายการ:</strong> ${itemName}</p>
+        <p><strong>รูปภาพประกอบ:</strong> <a href="${fileUrl}" target="_blank">เปิดดูรูปภาพ</a></p>
+        <p style="margin-top: 20px;">
+          <a href="${approveUrl}" style="background-color: #28a745; color: white; padding: 12px 20px; text-align: center; text-decoration: none; display: inline-block; border-radius: 8px; font-weight: bold; margin-right: 10px;">Approve Return</a>
+          <a href="${rejectUrl}" style="background-color: #dc3545; color: white; padding: 12px 20px; text-align: center; text-decoration: none; display: inline-block; border-radius: 8px; font-weight: bold;">Reject Return</a>
+        </p>
+      </div>`
+  });
+  return { result: "success" };
+}
+
+function processReturn(action, sheetName, row) {
+  const sh = getSpreadsheet().getSheetByName(sheetName);
+  if (!sh) return { status: "error", message: `Sheet '${sheetName}' not found.` };
+  const rowNo = parseInt(row, 10);
+  const current = (sh.getRange(rowNo, COL.RETURN_STATUS).getValue() || "").toString();
+  if (current && current !== "รออนุมัติการคืน") { return { status: "already_processed" }; }
+  if (action === "approveReturn") { sh.getRange(rowNo, COL.RETURN_STATUS).setValue("Returned"); return { status: "return_ok" }; }
+  if (action === "rejectReturn") { sh.getRange(rowNo, COL.RETURN_STATUS).setValue("Problem"); return { status: "return_problem" }; }
+  return { status: "error", message: "Invalid action" };
+}
+
+/* =========================== HELPERS =========================== */
+function getOrCreateFolder_(name) { const it = DriveApp.getFoldersByName(name); return it.hasNext() ? it.next() : DriveApp.createFolder(name); }
+function dataUrlToBlob_(dataUrl) { const parts = String(dataUrl).split(","), mime = parts[0].match(/:(.*?);/)[1] || "image/jpeg", bytes = Utilities.base64Decode(parts[1]); return Utilities.newBlob(bytes, mime, "return.jpg"); }
+function cancelBooking(sheetName, row, eventId) { try { const sh = getSpreadsheet().getSheetByName(sheetName); if (!sh) throw new Error(`Sheet '${sheetName}' not found.`); sh.getRange(parseInt(row, 10), COL.STATUS).setValue("Cancelled by user"); if (eventId && eventId !== "null" && eventId !== "undefined") { try { const ev = (CalendarApp.getCalendarById(CALENDAR_ID) || CalendarApp.getDefaultCalendar()).getEventById(eventId); if (ev) ev.deleteEvent(); } catch (e) { Logger.log("Could not find or delete calendar event ID: " + eventId + ". Error: " + e.message); } } return { result: "success" }; } catch (e) { return { error: String(e.message || e) }; } }
+function getMyBookings(email) { if (!email) return []; const userEmail = String(email).toLowerCase().trim(), bookings = [], allBookingSheets = ["GlasswareBookings", "ChemicalsBookings", "CommonBookings", "InstrumentsBookings", "AnaInstrumentsBookings"]; allBookingSheets.forEach(sheetName => { const sheet = getSpreadsheet().getSheetByName(sheetName); if (!sheet) return; const data = sheet.getDataRange().getValues(); if (data.length < 2) return; const headers = data[0].map(h => h.toString().trim()), emailCol = headers.indexOf("Email"); if (emailCol === -1) return; const itemNameCol = headers.indexOf("ItemName"), startCol = headers.indexOf("StartISO"), endCol = headers.indexOf("EndISO"), statusCol = headers.indexOf("Status"), returnStatusCol = headers.indexOf("ReturnStatus"); for (let i = 1; i < data.length; i++) { const row = data[i]; if (String(row[emailCol] || '').toLowerCase().trim() === userEmail) { bookings.push({ ItemName: itemNameCol > -1 ? row[itemNameCol] : 'N/A', Start: startCol > -1 && row[startCol] ? new Date(row[startCol]).toISOString() : '', End: endCol > -1 && row[endCol] ? new Date(row[endCol]).toISOString() : '', Status: statusCol > -1 ? row[statusCol] : 'N/A', ReturnStatus: returnStatusCol > -1 ? row[returnStatusCol] : '' }); } } }); return bookings.sort((a, b) => new Date(b.Start) - new Date(a.Start)); }
