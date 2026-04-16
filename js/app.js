@@ -87,7 +87,33 @@ window.App = {
 
   /* -------------------------------------------------- INIT DATA */
   async _loadInit() {
+    const CACHE_KEY = 'kcib_init_v1';
+    const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+    // Try cache first for instant load
+    try {
+      const cached = sessionStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { ts, data } = JSON.parse(cached);
+        if (Date.now() - ts < CACHE_TTL) {
+          this._applyInitData(data);
+          // Refresh in background silently
+          apiGet('init').then(fresh => {
+            sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: fresh }));
+          }).catch(() => {});
+          return;
+        }
+      }
+    } catch (_) {}
+
     const data = await apiGet('init');
+    try {
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
+    } catch (_) {}
+    this._applyInitData(data);
+  },
+
+  _applyInitData(data) {
     const inv = data.inventory || [];
     this.state.inventory = inv.map(normalizeItem);
 
@@ -216,7 +242,16 @@ window.App = {
     if (!u) {
       el.innerHTML = `${cartBtnHtml}<div class="nav-signin-btn"><div id="g_id_signin_button"></div></div>`;
       this._renderGSI();
+      // Mobile: show sign-in slot in the drawer
+      const mobileSlot = document.getElementById('mobile-signin-slot');
+      if (mobileSlot) {
+        mobileSlot.innerHTML = `<div id="g_id_signin_button_mobile"></div>`;
+        this._renderGSIMobile();
+      }
     } else {
+      // Mobile: hide sign-in slot
+      const mobileSlot = document.getElementById('mobile-signin-slot');
+      if (mobileSlot) mobileSlot.innerHTML = '';
       const avatarHtml = u.picture
         ? `<img class="user-avatar-img" src="${u.picture}" alt="${u.givenName}" referrerpolicy="no-referrer">`
         : `<div class="user-avatar-init">${(u.givenName || u.name || 'U').charAt(0).toUpperCase()}</div>`;
@@ -320,6 +355,26 @@ window.App = {
         });
         google.accounts.id.renderButton(el, {
           theme: 'outline', size: 'large', shape: 'pill', text: 'signin_with'
+        });
+        clearInterval(timer);
+      }
+    };
+    const timer = setInterval(tryRender, 60);
+    tryRender();
+  },
+
+  _renderGSIMobile() {
+    const el = document.getElementById('g_id_signin_button_mobile');
+    if (!el) return;
+    const tryRender = () => {
+      if (window.google?.accounts?.id) {
+        google.accounts.id.initialize({
+          client_id: window.GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID,
+          callback:  handleCredentialResponse,
+          auto_prompt: false
+        });
+        google.accounts.id.renderButton(el, {
+          theme: 'outline', size: 'large', shape: 'rectangular', text: 'signin_with', width: 240
         });
         clearInterval(timer);
       }

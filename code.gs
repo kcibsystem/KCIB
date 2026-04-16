@@ -64,9 +64,6 @@ function colIdx_(headers, name) { return headers.indexOf(name); }
 // ==================== ROUTER ====================
 function doGet(e) {
   const p = e.parameter || {};
-  if (p.action === "process_email") {
-    return handleEmailAction(p.type, p.bookingId, p.staffEmail || "");
-  }
   try {
     switch (p.func) {
       case "init":          return jsonOut(getInitData());
@@ -153,10 +150,6 @@ function getStaffConfig() {
   return config;
 }
 
-function getStaffEmailsForRole(role) {
-  var cfg = getStaffConfig();
-  return (cfg[role] || []).map(function(a) { return a.email; });
-}
 
 // ==================== BOOKINGS ====================
 function getMyBookings(email) {
@@ -203,23 +196,6 @@ function submitBooking(data) {
   ];
 
   sheet.appendRow(newRow);
-
-  // Notify advisor by email
-  try {
-    sendAdvisorEmail(bookingId, {
-      studentEmail: data.email    || "",
-      studentName:  data.name     || "",
-      course:       data.course   || "",
-      advisorEmail: advisorEmail,
-      advisorName:  advisorName,
-      itemName:     data.itemName || "",
-      category:     data.category || "",
-      start:        data.start    || "",
-      end:          data.end      || "",
-      quantity:     data.quantity || "",
-      note:         data.note     || ""
-    });
-  } catch(e) { Logger.log("sendAdvisorEmail error: " + e); }
 
   return { success: true, bookingId: bookingId };
 }
@@ -280,36 +256,30 @@ function approveBooking(data) {
   const now           = new Date().toISOString();
 
   if (currentStatus === STATUS.P1) {
-    // ADVISORS approved → notify HEAD_DEPT (P2)
+    // ADVISORS approved → advance to HEAD_DEPT (P2)
     const headDept = staffCfg["HEAD_DEPT"] || [];
     sheet.getRange(rowNo, stCol).setValue(STATUS.P2);
     sheet.getRange(rowNo, caCol).setValue(
       headDept.map(function(a) { return a.name; }).join(", ") || "หัวหน้าภาควิชา"
     );
-    try { sendStepEmail("HEAD_DEPT", STATUS.P2, data.bookingId, rowData, headers, staffCfg); } catch(e) { Logger.log(e); }
     return { success: true };
   }
 
   if (currentStatus === STATUS.P2) {
-    // HEAD_DEPT approved → notify floor staff (P3)
-    const nextRole    = isTP2 ? "STAFF_PROJECT_2" : "STAFF_FLOOR_1";
-    const nextStaff   = staffCfg[nextRole] || [];
+    // HEAD_DEPT approved → advance to floor staff (P3)
+    const nextRole  = isTP2 ? "STAFF_PROJECT_2" : "STAFF_FLOOR_1";
+    const nextStaff = staffCfg[nextRole] || [];
     sheet.getRange(rowNo, stCol).setValue(STATUS.P3);
     sheet.getRange(rowNo, caCol).setValue(
       nextStaff.map(function(a) { return a.name; }).join(", ") || "เจ้าหน้าที่"
     );
-    try { sendStepEmail(nextRole, STATUS.P3, data.bookingId, rowData, headers, staffCfg); } catch(e) { Logger.log(e); }
     return { success: true };
   }
 
   if (currentStatus === STATUS.P3) {
-    // Floor staff approved → APPROVED, notify student + VIEWERS
+    // Floor staff approved → APPROVED
     sheet.getRange(rowNo, stCol).setValue(STATUS.APPROVED);
     sheet.getRange(rowNo, caCol).setValue("อนุมัติแล้ว");
-    const studentEmail = String(rowData[emCol] || "");
-    const studentName  = String(rowData[nmCol]  || "");
-    try { sendApprovedEmail(studentEmail, studentName, data.bookingId, rowData, headers); } catch(e) { Logger.log(e); }
-    try { sendViewersNotify(data.bookingId, rowData, headers, staffCfg); } catch(e) { Logger.log(e); }
     return { success: true };
   }
 
@@ -342,207 +312,6 @@ function rejectBooking(data) {
   sheet.getRange(rowNo, stCol).setValue(STATUS.REJECTED);
   sheet.getRange(rowNo, caCol).setValue("ปฏิเสธ");
 
-  try { sendRejectedEmail(studentEmail, studentName, data.bookingId, rowData, headers, data.notes || ""); } catch(e) { Logger.log(e); }
-
   return { success: true };
 }
 
-// ==================== EMAIL ACTION (links in email) ====================
-function handleEmailAction(type, bookingId, staffEmail) {
-  try {
-    var result = type === "approve"
-      ? approveBooking({ bookingId: bookingId, staffEmail: staffEmail })
-      : rejectBooking({ bookingId: bookingId, staffEmail: staffEmail });
-
-    var msg = (result.success || result.ok)
-      ? (type === "approve" ? "✅ อนุมัติสำเร็จ" : "❌ ปฏิเสธสำเร็จ")
-      : "เกิดข้อผิดพลาด: " + (result.error || "");
-
-    return HtmlService.createHtmlOutput(
-      "<html><body style=\"font-family:sans-serif;text-align:center;padding:60px;\">"
-      + "<h2>" + msg + "</h2>"
-      + "<p>Booking ID: " + bookingId + "</p>"
-      + "<a href=\"" + KCIB_SITE_URL + "\">กลับสู่ระบบ KCIB</a>"
-      + "</body></html>"
-    );
-  } catch(e) {
-    return HtmlService.createHtmlOutput("<p>Error: " + e.message + "</p>");
-  }
-}
-
-// ==================== EMAIL TEMPLATES ====================
-function emailWrap(title, body) {
-  return "<!DOCTYPE html><html><body style=\"margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;\">"
-    + "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f3f4f6;padding:32px 0;\">"
-    + "<tr><td align=\"center\">"
-    + "<table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);\">"
-    + "<tr><td style=\"background:linear-gradient(135deg,#1e3a5f,#2563eb);padding:28px 32px;\">"
-    + "<h1 style=\"margin:0;color:#fff;font-size:22px;\">KCIB — ระบบจองเครื่องมือ</h1>"
-    + "<p style=\"margin:4px 0 0;color:#bfdbfe;font-size:13px;\">ภาควิชาวิศวกรรมเคมี สจล.</p>"
-    + "</td></tr>"
-    + "<tr><td style=\"padding:28px 32px;\">"
-    + "<h2 style=\"margin:0 0 16px;color:#1e3a5f;font-size:18px;\">" + title + "</h2>"
-    + body
-    + "</td></tr>"
-    + "<tr><td style=\"background:#f9fafb;padding:16px 32px;border-top:1px solid #e5e7eb;\">"
-    + "<p style=\"margin:0;color:#9ca3af;font-size:12px;\">อีเมลนี้ถูกส่งโดยอัตโนมัติจากระบบ KCIB — กรุณาอย่าตอบกลับ</p>"
-    + "</td></tr>"
-    + "</table></td></tr></table></body></html>";
-}
-
-function bookingInfoTable(rowData, headers) {
-  function val(col) {
-    var idx = colIdx_(headers, col);
-    return idx >= 0 ? String(rowData[idx] || "") : "";
-  }
-  var fields = [
-    ["Booking ID",       val("BookingID")],
-    ["ผู้ขอ",             val("Name") + " (" + val("Email") + ")"],
-    ["รายวิชา",           val("Course")],
-    ["อาจารย์ที่ปรึกษา",   val("AdvisorEmail")],
-    ["รายการ",            val("ItemName")],
-    ["ประเภท",            val("Category")],
-    ["วันที่เริ่ม",         val("Start")],
-    ["วันที่สิ้นสุด",       val("End")],
-    ["ช่วงเวลา",           val("Slot")],
-    ["จำนวน",             val("Quantity")],
-    ["วัตถุประสงค์",       val("Note")],
-  ];
-  if (val("Amount"))        fields.push(["ปริมาณ",      val("Amount")]);
-  if (val("Grade"))         fields.push(["เกรด",        val("Grade")]);
-  if (val("Concentration")) fields.push(["ความเข้มข้น",  val("Concentration")]);
-
-  var trs = fields.filter(function(f) { return f[1]; }).map(function(f) {
-    return "<tr>"
-      + "<td style=\"padding:8px 12px;background:#f9fafb;font-weight:600;color:#374151;white-space:nowrap;border:1px solid #e5e7eb;font-size:14px;\">" + f[0] + "</td>"
-      + "<td style=\"padding:8px 12px;color:#111827;border:1px solid #e5e7eb;font-size:14px;\">" + f[1] + "</td>"
-      + "</tr>";
-  }).join("");
-
-  return "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-collapse:collapse;margin:16px 0;\">" + trs + "</table>";
-}
-
-function btn(label, href, color) {
-  return "<a href=\"" + href + "\" style=\"display:inline-block;padding:12px 28px;background:" + color + ";color:#fff;text-decoration:none;border-radius:8px;font-size:15px;font-weight:600;margin:4px;\">" + label + "</a>";
-}
-
-// ==================== EMAIL: Notify advisor (Step 1) ====================
-function sendAdvisorEmail(bookingId, d) {
-  var advisorEmail = d.advisorEmail;
-  if (!advisorEmail || advisorEmail.indexOf("@") === -1) return;
-
-  var scriptUrl   = ScriptApp.getService().getUrl();
-  var approveLink = scriptUrl + "?action=process_email&type=approve&bookingId=" + bookingId + "&staffEmail=" + encodeURIComponent(advisorEmail);
-  var rejectLink  = scriptUrl + "?action=process_email&type=reject&bookingId="  + bookingId + "&staffEmail=" + encodeURIComponent(advisorEmail);
-
-  var fields = [
-    ["Booking ID",   bookingId],
-    ["นักศึกษา",      d.studentName + " (" + d.studentEmail + ")"],
-    ["รายวิชา",       d.course],
-    ["รายการ",        d.itemName],
-    ["ประเภท",        d.category],
-    ["วันที่เริ่ม",     d.start],
-    ["วันที่สิ้นสุด",   d.end || d.start],
-    ["จำนวน",         d.quantity],
-    ["วัตถุประสงค์",   d.note],
-  ];
-
-  var trs = fields.filter(function(f) { return f[1]; }).map(function(f) {
-    return "<tr>"
-      + "<td style=\"padding:8px 12px;background:#f9fafb;font-weight:600;color:#374151;white-space:nowrap;border:1px solid #e5e7eb;font-size:14px;\">" + f[0] + "</td>"
-      + "<td style=\"padding:8px 12px;color:#111827;border:1px solid #e5e7eb;font-size:14px;\">" + f[1] + "</td>"
-      + "</tr>";
-  }).join("");
-
-  var table = "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-collapse:collapse;margin:16px 0;\">" + trs + "</table>";
-
-  var body = "<p>มีคำขอจองเครื่องมือใหม่รอการอนุมัติจากท่าน</p>"
-    + table
-    + "<p style=\"margin-top:24px;font-weight:600;color:#374151;\">กรุณาดำเนินการ:</p>"
-    + "<p>"
-    + btn("✅ อนุมัติ", approveLink, "#16a34a")
-    + btn("❌ ปฏิเสธ", rejectLink,  "#dc2626")
-    + "</p>"
-    + "<p style=\"color:#6b7280;font-size:13px;\">หรือเข้าสู่ระบบที่ <a href=\"" + KCIB_SITE_URL + "\">" + KCIB_SITE_URL + "</a></p>";
-
-  MailApp.sendEmail({
-    to:       advisorEmail,
-    subject:  "[KCIB] คำขอจองใหม่ — " + d.itemName + " (ID: " + bookingId + ")",
-    htmlBody: emailWrap("มีคำขอจองรอการอนุมัติ", body)
-  });
-}
-
-// ==================== EMAIL: Notify next-step staff ====================
-function sendStepEmail(role, newStatus, bookingId, rowData, headers, staffCfg) {
-  var emails = (staffCfg[role] || []).map(function(a) { return a.email; });
-  if (!emails.length) return;
-
-  var stepLabel = newStatus === STATUS.P2 ? "ขั้นที่ 2 (หัวหน้าภาควิชา)" : "ขั้นที่ 3 (เจ้าหน้าที่)";
-  var body = "<p>คำขอจองเครื่องมือผ่านขั้นตอนก่อนหน้าแล้ว กรุณาตรวจสอบและดำเนินการอนุมัติ<strong>" + stepLabel + "</strong></p>"
-    + bookingInfoTable(rowData, headers)
-    + "<p style=\"margin-top:24px;\">"
-    + btn("เข้าสู่แดชบอร์ด", KCIB_SITE_URL + "#dashboard", "#2563eb")
-    + "</p>";
-
-  var itemName = String(rowData[colIdx_(headers, "ItemName")] || "");
-  MailApp.sendEmail({
-    to:       emails.join(","),
-    subject:  "[KCIB] รออนุมัติ" + stepLabel + " — " + itemName + " (ID: " + bookingId + ")",
-    htmlBody: emailWrap("รออนุมัติ" + stepLabel, body)
-  });
-}
-
-// ==================== EMAIL: Approved — notify student ====================
-function sendApprovedEmail(studentEmail, studentName, bookingId, rowData, headers) {
-  if (!studentEmail) return;
-
-  var itemName = String(rowData[colIdx_(headers, "ItemName")] || "");
-  var body = "<p>ยินดีด้วย! คำขอจองเครื่องมือของท่านได้รับการ<strong style=\"color:#16a34a;\">อนุมัติแล้ว</strong> 🎉</p>"
-    + bookingInfoTable(rowData, headers)
-    + "<p style=\"background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 16px;color:#15803d;margin-top:16px;\">"
-    + "กรุณาติดต่อเจ้าหน้าที่เพื่อรับเครื่องมือตามวันและเวลาที่กำหนด</p>"
-    + "<p>" + btn("ดูสถานะการจอง", KCIB_SITE_URL + "#my-bookings", "#2563eb") + "</p>";
-
-  MailApp.sendEmail({
-    to:       studentEmail,
-    subject:  "[KCIB] ✅ อนุมัติแล้ว — " + itemName + " (ID: " + bookingId + ")",
-    htmlBody: emailWrap("คำขอจองได้รับการอนุมัติ", body)
-  });
-}
-
-// ==================== EMAIL: Rejected — notify student ====================
-function sendRejectedEmail(studentEmail, studentName, bookingId, rowData, headers, reason) {
-  if (!studentEmail) return;
-
-  var itemName = String(rowData[colIdx_(headers, "ItemName")] || "");
-  var reasonBlock = reason
-    ? "<p style=\"background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;color:#b91c1c;margin-top:16px;\"><strong>เหตุผล:</strong> " + reason + "</p>"
-    : "";
-
-  var body = "<p>เสียใจด้วย คำขอจองเครื่องมือของท่านถูก<strong style=\"color:#dc2626;\">ปฏิเสธ</strong></p>"
-    + bookingInfoTable(rowData, headers)
-    + reasonBlock
-    + "<p>" + btn("ดูสถานะการจอง", KCIB_SITE_URL + "#my-bookings", "#2563eb") + "</p>";
-
-  MailApp.sendEmail({
-    to:       studentEmail,
-    subject:  "[KCIB] ❌ ปฏิเสธ — " + itemName + " (ID: " + bookingId + ")",
-    htmlBody: emailWrap("คำขอจองถูกปฏิเสธ", body)
-  });
-}
-
-// ==================== EMAIL: Notify VIEWERS on final approval ====================
-function sendViewersNotify(bookingId, rowData, headers, staffCfg) {
-  var emails = (staffCfg["VIEWERS"] || []).map(function(a) { return a.email; });
-  if (!emails.length) return;
-
-  var itemName = String(rowData[colIdx_(headers, "ItemName")] || "");
-  var body = "<p>คำขอจองเครื่องมือได้รับการ<strong>อนุมัติแล้ว</strong></p>"
-    + bookingInfoTable(rowData, headers);
-
-  MailApp.sendEmail({
-    to:       emails.join(","),
-    subject:  "[KCIB] แจ้งเตือน: อนุมัติแล้ว — " + itemName + " (ID: " + bookingId + ")",
-    htmlBody: emailWrap("แจ้งเตือนการอนุมัติขั้นสุดท้าย", body)
-  });
-}
