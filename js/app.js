@@ -249,9 +249,23 @@ window.App = {
         this._renderGSIMobile();
       }
     } else {
-      // Mobile: hide sign-in slot
+      // Mobile: show user card in the drawer
       const mobileSlot = document.getElementById('mobile-signin-slot');
-      if (mobileSlot) mobileSlot.innerHTML = '';
+      if (mobileSlot) {
+        const av = u.picture
+          ? `<img class="user-avatar-img" src="${u.picture}" alt="" referrerpolicy="no-referrer" style="width:36px;height:36px;">`
+          : `<div class="user-avatar-init" style="width:36px;height:36px;font-size:15px;">${(u.givenName||u.name||'U').charAt(0).toUpperCase()}</div>`;
+        mobileSlot.innerHTML = `
+          <div class="mobile-user-card">
+            ${av}
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:14px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.givenName||u.name.split(' ')[0]}</div>
+              <div style="font-size:11px;color:var(--accent);font-weight:600;">${u.roleLabel}</div>
+            </div>
+            <button onclick="navClose();App.logout();" class="mobile-logout-btn">ออกจากระบบ</button>
+          </div>`;
+      }
+
       const avatarHtml = u.picture
         ? `<img class="user-avatar-img" src="${u.picture}" alt="${u.givenName}" referrerpolicy="no-referrer">`
         : `<div class="user-avatar-init">${(u.givenName || u.name || 'U').charAt(0).toUpperCase()}</div>`;
@@ -306,9 +320,13 @@ window.App = {
         <div class="dropdown-item" onclick="closeDropdown();App.navigate('my-bookings');">
           <span>📋</span> การจองของฉัน
         </div>
-        ${isStaff ? `<div class="dropdown-item" onclick="closeDropdown();App.navigate('dashboard');">
+        ${isStaff ? `
+        <div class="dropdown-item" onclick="closeDropdown();App.navigate('dashboard');">
           <span>📊</span> แดชบอร์ด
-        </div>` : ''}
+        </div>
+        <a class="dropdown-item" href="${window.GSHEET_URL||GSHEET_URL}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">
+          <span>🗂️</span> ดูข้อมูลการจอง (Sheets)
+        </a>` : ''}
         <div class="dropdown-divider"></div>
         <div class="dropdown-item danger" onclick="closeDropdown();App.logout();">
           <span>🚪</span> ออกจากระบบ
@@ -610,10 +628,10 @@ window.App = {
 
     // Fixed filters always shown
     const FIXED_FILTERS = [
-      { label: 'Team Project 2', match: (i) =>
+      { label: 'Team Project 2', icon: '👥', match: (i) =>
           /team.?project.?2/i.test(i.courseLimit) || /team.?project.?2/i.test(i.location) },
-      { label: 'CCA Lab-1',  match: (i) => /cca.?lab.?1/i.test(i.location)  },
-      { label: 'CCA Lab-3',  match: (i) => /cca.?lab.?3/i.test(i.location)  },
+      { label: 'CCA Lab-1', icon: '🔬', match: (i) => /cca.?lab.?1/i.test(i.location) },
+      { label: 'CCA Lab-3', icon: '⚗️', match: (i) => /cca.?lab.?3/i.test(i.location) },
     ];
 
     // Extra dynamic locations not covered by fixed filters
@@ -629,18 +647,19 @@ window.App = {
     if (activeFixed.length === 0 && dynamicLocs.length === 0) return;
 
     const cur = this._currentLocationFilter;
-    filterEl.innerHTML = `
-      <span class="equip-filter-label">ห้อง/สถานที่:</span>
-      <div class="filter-chip ${cur === '' ? 'active' : ''}"
-           onclick="App._setLocationFilter('')">ทั้งหมด</div>
-      ${activeFixed.map(f => `
-        <div class="filter-chip ${cur === f.label ? 'active' : ''}"
-             onclick="App._setLocationFilter('${escHtml(f.label)}')">${escHtml(f.label)}</div>
-      `).join('')}
-      ${dynamicLocs.map(loc => `
-        <div class="filter-chip ${cur === loc ? 'active' : ''}"
-             onclick="App._setLocationFilter('${escHtml(loc)}')">${escHtml(loc)}</div>
-      `).join('')}`;
+    const chip = (label, icon, key) => {
+      const on = cur === key;
+      return `<div class="filter-chip ${on ? 'active' : ''}" onclick="App._setLocationFilter('${escHtml(key)}')">
+        ${on ? `<span class="fc-tick">✓</span>` : ''}
+        <span class="fc-icon">${icon}</span>
+        <span class="fc-label">${escHtml(label)}</span>
+      </div>`;
+    };
+
+    filterEl.innerHTML =
+      chip('ทั้งหมด', '🏠', '')
+      + activeFixed.map(f => chip(f.label, f.icon, f.label)).join('')
+      + dynamicLocs.map(loc => chip(loc, '📍', loc)).join('');
   },
 
   _setLocationFilter(loc) {
@@ -1475,7 +1494,14 @@ window.App = {
       <div class="dash-v2-page">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
           <h1 style="font-size:22px;font-weight:800;">📊 แดชบอร์ด</h1>
-          <button class="btn btn-secondary btn-sm" onclick="App._loadDashboard()">↻ รีเฟรช</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <a class="btn btn-secondary btn-sm" href="${window.GSHEET_URL||GSHEET_URL}" target="_blank" rel="noopener"
+               style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/><polyline points="9 9 10 9"/></svg>
+              ดูข้อมูลการจอง (Sheets)
+            </a>
+            <button class="btn btn-secondary btn-sm" onclick="App._loadDashboard()">↻ รีเฟรช</button>
+          </div>
         </div>
         <div id="dash-stats" class="dash-v2-stats">
           ${Array.from({length:4}, () => `

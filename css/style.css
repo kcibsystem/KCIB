@@ -714,7 +714,10 @@ input, select, textarea { font-family: inherit; }
   flex-wrap: wrap;
 }
 .filter-chip {
-  padding: 7px 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
   border-radius: 999px;
   border: 1.5px solid var(--border);
   background: #fff;
@@ -732,6 +735,9 @@ input, select, textarea { font-family: inherit; }
   color: #fff;
   box-shadow: 0 4px 12px rgba(255,109,56,.3);
 }
+.fc-tick  { font-size: 11px; font-weight: 800; line-height: 1; }
+.fc-icon  { font-size: 14px; line-height: 1; }
+.fc-label { line-height: 1; }
 
 .equip-content {
   max-width: 1200px;
@@ -1392,6 +1398,29 @@ table.dash-table {
 .mobile-signin-slot {
   display: none; /* hidden on desktop — shown via media query */
 }
+.mobile-user-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: var(--radius);
+}
+.mobile-logout-btn {
+  background: rgba(239,68,68,.15);
+  border: 1px solid rgba(239,68,68,.3);
+  color: #fca5a5;
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-family: inherit;
+}
+.mobile-logout-btn:hover { background: var(--danger); color: #fff; }
 
 /* ===================== RESPONSIVE ===================== */
 @media (max-width: 1024px) {
@@ -1429,12 +1458,12 @@ table.dash-table {
   }
   .nav-hamburger { display: flex; }
 
-  /* Sign-in button inside mobile drawer */
+  /* Sign-in / user card inside mobile drawer */
   .mobile-signin-slot {
-    display: flex;
-    justify-content: center;
+    display: block;
     padding: 10px 8px 6px;
   }
+  .mobile-signin-slot > div { justify-content: center; }
 
   .cat-grid { grid-template-columns: 1fr; }
   .stats-row { grid-template-columns: repeat(2, 1fr); }
