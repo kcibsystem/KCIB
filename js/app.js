@@ -1604,8 +1604,9 @@ window.App = {
 
   async _approveBooking(bookingId) {
     if (!confirm('ยืนยันการอนุมัติการจองนี้?')) return;
+    const u = this.state.user;
     try {
-      const result = await apiPost({ action: 'approveBooking', bookingId });
+      const result = await apiPost({ action: 'approveBooking', bookingId, staffEmail: u?.email });
       if (!result.success) throw new Error(result.error || 'เกิดข้อผิดพลาด');
       showToast('success', 'อนุมัติสำเร็จ', '');
       this._allBookings = [];
@@ -1617,8 +1618,9 @@ window.App = {
 
   async _rejectBooking(bookingId) {
     if (!confirm('ยืนยันการปฏิเสธการจองนี้?')) return;
+    const u = this.state.user;
     try {
-      const result = await apiPost({ action: 'rejectBooking', bookingId });
+      const result = await apiPost({ action: 'rejectBooking', bookingId, staffEmail: u?.email });
       if (!result.success) throw new Error(result.error || 'เกิดข้อผิดพลาด');
       showToast('info', 'ปฏิเสธการจองแล้ว', '');
       this._allBookings = [];
@@ -1629,6 +1631,7 @@ window.App = {
   },
 
   async _approveAllPending() {
+    const u = this.state.user;
     const pending = this._allBookings.filter(b => this._canApprove(b));
     if (pending.length === 0) return;
     if (!confirm(`ยืนยันการอนุมัติทั้งหมด ${pending.length} รายการ?`)) return;
@@ -1637,7 +1640,7 @@ window.App = {
     showToast('info', `กำลังอนุมัติ ${pending.length} รายการ...`, '');
     for (const b of pending) {
       try {
-        const r = await apiPost({ action: 'approveBooking', bookingId: b.BookingID });
+        const r = await apiPost({ action: 'approveBooking', bookingId: b.BookingID, staffEmail: u?.email });
         if (r.success) ok++; else fail++;
       } catch { fail++; }
     }
@@ -1647,6 +1650,7 @@ window.App = {
   },
 
   async _rejectAllPending() {
+    const u = this.state.user;
     const pending = this._allBookings.filter(b => this._canApprove(b));
     if (pending.length === 0) return;
     if (!confirm(`ยืนยันการปฏิเสธทั้งหมด ${pending.length} รายการ?`)) return;
@@ -1655,7 +1659,7 @@ window.App = {
     showToast('info', `กำลังปฏิเสธ ${pending.length} รายการ...`, '');
     for (const b of pending) {
       try {
-        const r = await apiPost({ action: 'rejectBooking', bookingId: b.BookingID });
+        const r = await apiPost({ action: 'rejectBooking', bookingId: b.BookingID, staffEmail: u?.email });
         if (r.success) ok++; else fail++;
       } catch { fail++; }
     }
