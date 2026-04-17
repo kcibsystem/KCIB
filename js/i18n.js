@@ -230,6 +230,15 @@ const TRANSLATIONS = {
     'dash.status.p1':       '1. รออ.ที่ปรึกษา',
     'dash.status.p2':       '2. รอหัวหน้าภาค',
     'dash.status.p3':       '3. รอเจ้าหน้าที่',
+    // Footer
+    'footer.dept':     'ภาควิชาวิศวกรรมเคมี',
+    'footer.faculty':  'คณะวิศวกรรมศาสตร์',
+    'footer.uni':      'สถาบันเทคโนโลยีพระจอมเกล้าเจ้าคุณทหารลาดกระบัง',
+    'footer.addr1':    'ถนนฉลองกรุง เขตลาดกระบัง',
+    'footer.addr2':    'กรุงเทพฯ 10520',
+    'footer.tel':      'โทร. 02 329 8360 3, Fax: 02 329 8360 3 กด 4',
+    'footer.website':  'เว็บไซต์ภาควิชา',
+    'footer.mapLabel': '📍 ที่ตั้ง CCA Building',
   },
   en: {
     // Nav
@@ -458,6 +467,15 @@ const TRANSLATIONS = {
     'dash.status.p1':       '1. Awaiting Advisor',
     'dash.status.p2':       '2. Awaiting Dept. Head',
     'dash.status.p3':       '3. Awaiting Staff',
+    // Footer
+    'footer.dept':     'Department of Chemical Engineering',
+    'footer.faculty':  'Faculty of Engineering',
+    'footer.uni':      'King Mongkut\'s Institute of Technology Ladkrabang',
+    'footer.addr1':    '1 Chalongkrung 1 Rd. Lat Krabang',
+    'footer.addr2':    'Bangkok 10520, Thailand',
+    'footer.tel':      'Tel. 02 329 8360 3, Fax: 02 329 8360 3 ext. 4',
+    'footer.website':  'Department Website',
+    'footer.mapLabel': '📍 CCA Building',
   }
 };
 
@@ -469,6 +487,14 @@ window.t = function(key) {
       || key;
 };
 
+function _updateI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    const val = t(key);
+    if (val) el.textContent = val;
+  });
+}
+
 window.setLang = function(lang) {
   if (lang === window.LANG) return;
   window.LANG = lang;
@@ -477,6 +503,7 @@ window.setLang = function(lang) {
     b.classList.toggle('active', b.dataset.lang === lang);
   });
   _updateNavLinks();
+  _updateI18n();
   if (window.App) App._route();
 };
 
@@ -502,4 +529,5 @@ function _updateNavLinks() {
     b.classList.toggle('active', b.dataset.lang === window.LANG);
   });
   _updateNavLinks();
+  _updateI18n();
 })();
