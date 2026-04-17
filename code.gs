@@ -168,6 +168,34 @@ function submitBooking(data) {
   const sheet = sh_(SHEETS.BOOKINGS);
   if (!sheet) throw new Error("Sheet 'ALlBooking' not found");
 
+  // Check for double-booking: count active overlapping bookings vs MaxQuantity
+  if (data.itemId && data.start && data.end) {
+    var invItems = sheetToObjects(SHEETS.INVENTORY);
+    var invItem  = invItems.filter(function(i) {
+      return String(i.ID || i.Id || i.id || i._row) === String(data.itemId);
+    })[0];
+    var maxQty   = invItem ? (parseInt(invItem.MaxQuantity) || 1) : 1;
+
+    var newStart = new Date(data.start);
+    var newEnd   = new Date(data.end);
+    var activeStatuses = [STATUS.P1, STATUS.P2, STATUS.P3, STATUS.APPROVED];
+
+    var conflicting = sheetToObjects(SHEETS.BOOKINGS).filter(function(b) {
+      if (String(b.ItemID) !== String(data.itemId)) return false;
+      if (activeStatuses.indexOf(String(b.Status)) === -1) return false;
+      var bStart = new Date(b.Start);
+      var bEnd   = new Date(b.End);
+      return newStart < bEnd && newEnd > bStart;
+    });
+
+    if (conflicting.length >= maxQty) {
+      return {
+        success: false,
+        error: "เครื่องนี้ถูกจองเต็มแล้วในช่วงเวลาที่เลือก (" + conflicting.length + "/" + maxQty + " เครื่อง)"
+      };
+    }
+  }
+
   const staffCfg      = getStaffConfig();
   const advisors      = staffCfg["ADVISORS"] || [];
   const chosenAdvisor = advisors.filter(function(a) { return a.email === data.advisorEmail; })[0] || {};
