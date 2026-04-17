@@ -1390,6 +1390,15 @@ table.dash-table {
   opacity: 0.6;
 }
 
+/* Flatpickr overrides */
+.flatpickr-calendar { font-family: var(--font); box-shadow: var(--shadow-md); border-radius: var(--radius); border: 1px solid var(--border); }
+.flatpickr-day.selected, .flatpickr-day.selected:hover { background: var(--accent); border-color: var(--accent); }
+.flatpickr-day:hover { background: var(--accent-light,#fff3ee); border-color: var(--accent); }
+.flatpickr-day.disabled, .flatpickr-day.disabled:hover { color: var(--text-3); background: var(--bg); opacity: 0.5; text-decoration: line-through; cursor: not-allowed; }
+.flatpickr-months .flatpickr-month { background: var(--dark); color: #fff; }
+.flatpickr-current-month .flatpickr-monthDropdown-months { background: var(--dark); color: #fff; }
+.flatpickr-weekday { color: var(--text-2); font-weight: 600; }
+
 /* Info box */
 .info-box {
   background: var(--info-bg);

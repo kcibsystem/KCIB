@@ -764,7 +764,7 @@ window.App = {
           ${item.location ? `<div class="eq-meta"><span class="eq-meta-icon">📍</span><span>${escHtml(item.location)}</span></div>` : ''}
           ${item.detail   ? `<div class="eq-detail">${escHtml(item.detail)}</div>` : ''}
           ${qtyBadge}
-          ${isRAD         ? `<div class="eq-rad-badge">📅 จองข้ามวันได้ (RAD)</div>` : ''}
+          ${isRAD         ? `<div class="eq-rad-badge">📅 จองข้ามวันได้</div>` : ''}
         </div>
         <div class="eq-card-foot">
           <div class="eq-model">${item.model ? escHtml(item.model) : ''}</div>
@@ -831,6 +831,39 @@ window.App = {
     this._renderCartModal();
     document.getElementById('modal-overlay').classList.add('open');
     document.body.style.overflow = 'hidden';
+    setTimeout(() => this._initCartPickers(), 0);
+  },
+
+  _initCartPickers() {
+    if (typeof flatpickr === 'undefined') return;
+    const holidays     = Array.from(this.state.holidays);
+    const disableWeekends = d => d.getDay() === 0 || d.getDay() === 6;
+    const today        = todayISO();
+    const maxDate      = dateAddDays(today, 180);
+
+    this.state.cart.forEach((entry, idx) => {
+      const item    = entry.item;
+      const cat     = CAT_CONFIG[item.category] || {};
+      const isTimed = cat.bookingType === 'timed' && !item.isRAD;
+      const itemKey = `ci_${idx}`;
+      const minDate = isTimed ? this._minBookingDate() : today;
+      const cfg = {
+        minDate, maxDate,
+        dateFormat: 'Y-m-d',
+        disable: [disableWeekends, ...holidays],
+        locale: typeof flatpickr.l10ns?.th !== 'undefined' ? 'th' : 'default'
+      };
+
+      if (isTimed) {
+        const el = document.getElementById(`${itemKey}_date`);
+        if (el) flatpickr(el, { ...cfg, onChange: (_, ds) => App._cartDateChange(itemKey, ds) });
+      } else {
+        const s = document.getElementById(`${itemKey}_start`);
+        const e = document.getElementById(`${itemKey}_end`);
+        if (s) flatpickr(s, cfg);
+        if (e) flatpickr(e, { ...cfg, minDate: today });
+      }
+    });
   },
 
   _renderCartModal() {
@@ -868,26 +901,46 @@ window.App = {
       } else if (isRAD) {
         dateFields = `
           <div class="info-box accent" style="margin-bottom:10px;padding:10px 12px;font-size:12px;">📅 จองข้ามวันได้</div>
-          <div class="form-row" style="margin-bottom:0;">
-            <div class="form-group" style="margin-bottom:10px;">
+          <div class="form-row" style="margin-bottom:10px;">
+            <div class="form-group" style="margin-bottom:0;">
               <label class="form-label" style="font-size:12px;">วันที่เริ่ม <span class="required">*</span></label>
               <input type="date" class="form-input" id="${itemKey}_start" min="${today}" max="${maxDate}">
             </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" style="font-size:12px;">เวลาเริ่ม <span class="required">*</span></label>
+              <input type="time" class="form-input" id="${itemKey}_start_time" value="09:00" min="09:00" max="16:00" step="3600">
+            </div>
+          </div>
+          <div class="form-row" style="margin-bottom:0;">
             <div class="form-group" style="margin-bottom:10px;">
               <label class="form-label" style="font-size:12px;">วันที่สิ้นสุด <span class="required">*</span></label>
               <input type="date" class="form-input" id="${itemKey}_end" min="${today}" max="${maxDate}">
             </div>
+            <div class="form-group" style="margin-bottom:10px;">
+              <label class="form-label" style="font-size:12px;">เวลาสิ้นสุด <span class="required">*</span></label>
+              <input type="time" class="form-input" id="${itemKey}_end_time" value="16:00" min="09:00" max="16:00" step="3600">
+            </div>
           </div>`;
       } else {
         dateFields = `
-          <div class="form-row" style="margin-bottom:0;">
-            <div class="form-group" style="margin-bottom:10px;">
+          <div class="form-row" style="margin-bottom:10px;">
+            <div class="form-group" style="margin-bottom:0;">
               <label class="form-label" style="font-size:12px;">วันที่รับ <span class="required">*</span></label>
               <input type="date" class="form-input" id="${itemKey}_start" min="${today}" max="${maxDate}">
             </div>
-            <div class="form-group" style="margin-bottom:10px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" style="font-size:12px;">เวลารับ <span class="required">*</span></label>
+              <input type="time" class="form-input" id="${itemKey}_start_time" value="09:00" min="09:00" max="16:00" step="3600">
+            </div>
+          </div>
+          <div class="form-row" style="margin-bottom:10px;">
+            <div class="form-group" style="margin-bottom:0;">
               <label class="form-label" style="font-size:12px;">วันที่คืน <span class="required">*</span></label>
               <input type="date" class="form-input" id="${itemKey}_end" min="${today}" max="${maxDate}">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" style="font-size:12px;">เวลาคืน <span class="required">*</span></label>
+              <input type="time" class="form-input" id="${itemKey}_end_time" value="16:00" min="09:00" max="16:00" step="3600">
             </div>
           </div>
           <div class="form-group" style="margin-bottom:10px;">
@@ -896,30 +949,10 @@ window.App = {
             </label>
             <input type="number" class="form-input" id="${itemKey}_qty" min="1" max="${item.maxQty || 9999}" value="1" placeholder="จำนวน">
           </div>
-          ${isChemical ? `
+          ${isChemical && item.detail ? `
             <div class="cart-section-divider">รายละเอียดสารเคมี</div>
-            <div class="chem-fields-grid" style="margin-bottom:10px;">
-              <div class="form-group" style="margin-bottom:0;">
-                <label class="form-label" style="font-size:12px;">ปริมาณ (Amount)</label>
-                <input type="text" class="form-input" id="${itemKey}_amount" placeholder="เช่น 100 mL, 50 g">
-              </div>
-              <div class="form-group" style="margin-bottom:0;">
-                <label class="form-label" style="font-size:12px;">เกรด (Grade)</label>
-                <select class="form-select" id="${itemKey}_grade">
-                  <option value="">-- เลือกเกรด --</option>
-                  <option value="Technical Grade">Technical Grade</option>
-                  <option value="Laboratory Grade (LR)">Laboratory Grade (LR)</option>
-                  <option value="Analytical Grade (AR)">Analytical Grade (AR)</option>
-                  <option value="HPLC Grade">HPLC Grade</option>
-                  <option value="Food Grade">Food Grade</option>
-                  <option value="Pharmaceutical Grade (BP/USP)">Pharmaceutical Grade (BP/USP)</option>
-                  <option value="Research Grade">Research Grade</option>
-                </select>
-              </div>
-              <div class="form-group" style="margin-bottom:0;">
-                <label class="form-label" style="font-size:12px;">ความเข้มข้น (Concentration)</label>
-                <input type="text" class="form-input" id="${itemKey}_conc" placeholder="เช่น 98%, 1 M, 0.1 N">
-              </div>
+            <div class="info-box" style="margin-bottom:10px;padding:10px 12px;font-size:12px;background:var(--bg);">
+              📋 ${escHtml(item.detail)}
             </div>
           ` : ''}`;
       }
@@ -1085,26 +1118,23 @@ window.App = {
         start = slot.dataset.start;
         end   = slot.dataset.end;
       } else if (isRAD) {
-        start = document.getElementById(`${key}_start`)?.value;
-        end   = document.getElementById(`${key}_end`)?.value;
-        if (!start || !end) { showToast('warning', `กรุณาเลือกวันที่สำหรับ "${item.name}"`, ''); return; }
+        const sd = document.getElementById(`${key}_start`)?.value;
+        const st = document.getElementById(`${key}_start_time`)?.value || '09:00';
+        const ed = document.getElementById(`${key}_end`)?.value;
+        const et = document.getElementById(`${key}_end_time`)?.value   || '16:00';
+        if (!sd || !ed) { showToast('warning', `กรุณาเลือกวันที่สำหรับ "${item.name}"`, ''); return; }
+        start = `${sd}T${st}:00`;
+        end   = `${ed}T${et}:00`;
       } else {
-        start    = document.getElementById(`${key}_start`)?.value;
-        end      = document.getElementById(`${key}_end`)?.value;
+        const sd = document.getElementById(`${key}_start`)?.value;
+        const st = document.getElementById(`${key}_start_time`)?.value || '09:00';
+        const ed = document.getElementById(`${key}_end`)?.value;
+        const et = document.getElementById(`${key}_end_time`)?.value   || '16:00';
         quantity = document.getElementById(`${key}_qty`)?.value || '1';
-        if (!start || !end) { showToast('warning', `กรุณาเลือกวันที่สำหรับ "${item.name}"`, ''); return; }
-        if (isChemical) {
-          const amount = document.getElementById(`${key}_amount`)?.value || '';
-          const grade  = document.getElementById(`${key}_grade`)?.value  || '';
-          const conc   = document.getElementById(`${key}_conc`)?.value   || '';
-          if (amount || grade || conc) {
-            chemDetail = [
-              amount ? `ปริมาณ: ${amount}` : '',
-              grade  ? `Grade: ${grade}`   : '',
-              conc   ? `ความเข้มข้น: ${conc}` : ''
-            ].filter(Boolean).join(' | ');
-          }
-        }
+        if (!sd || !ed) { showToast('warning', `กรุณาเลือกวันที่สำหรับ "${item.name}"`, ''); return; }
+        start = `${sd}T${st}:00`;
+        end   = `${ed}T${et}:00`;
+        if (isChemical && item.detail) chemDetail = item.detail;
       }
 
       submissions.push({ item, category: item.category, start, end, quantity,
@@ -1318,10 +1348,6 @@ window.App = {
     this._myBookingsFilter = 'all';
     el.innerHTML = `
       <div class="bk-page">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
-          <h1 style="font-size:22px;font-weight:800;">${t('mybook.title')}</h1>
-          <button class="btn btn-secondary btn-sm" onclick="App._refreshMyBookings()">${t('mybook.refresh')}</button>
-        </div>
         <div id="bk-filter-bar" class="bk-filter-bar"></div>
         <div id="bookings-list">${this._skeletonBookings(3)}</div>
       </div>`;
@@ -1383,7 +1409,8 @@ window.App = {
            onclick="App._setMyBookingsFilter('${tab.id}')">
         ${tab.label}
         ${counts[tab.id] > 0 ? `<span class="bk-filter-count">${counts[tab.id]}</span>` : ''}
-      </div>`).join('');
+      </div>`).join('') +
+      `<button class="btn btn-secondary btn-sm" onclick="App._refreshMyBookings()" style="margin-left:auto;">🔄 ${t('mybook.refresh')}</button>`;
 
     let filtered = bookings;
     if (f === 'pending')  filtered = bookings.filter(b => [STATUS_P1, STATUS_P2, STATUS_P3].includes(b.Status || ''));
@@ -1843,7 +1870,7 @@ function normalizeItem(raw) {
     model:       String(raw.ItemBrand || raw.Model || raw.model || ''),
     maxQty,
     courseLimit: String(raw.CourseLimit || raw.courselimit || ''),
-    isRAD:       detail.toUpperCase().includes('RAD')
+    isRAD:       /\bRAD\b/i.test(detail)
   };
 }
 
