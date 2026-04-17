@@ -70,7 +70,7 @@ window.App = {
       await this._loadInit();
     } catch (e) {
       console.error('Failed to load init data:', e);
-      showToast('error', 'โหลดข้อมูลไม่สำเร็จ', 'กรุณาตรวจสอบ SCRIPT_URL ในไฟล์ index.html');
+      showToast('error', t('toast.loadFail'), t('toast.loadFailHint'));
     }
 
     // Hide loading overlay
@@ -137,7 +137,7 @@ window.App = {
   /* -------------------------------------------------- GOOGLE LOGIN */
   handleGoogleLogin(response) {
     const credential = jwtDecode(response.credential);
-    if (!credential) { showToast('error', 'เกิดข้อผิดพลาด', 'ไม่สามารถตรวจสอบ credential ได้'); return; }
+    if (!credential) { showToast('error', t('toast.credError'), t('toast.credErrorDesc')); return; }
 
     // Restrict to kmitl.ac.th (or comment out for any domain)
     // if (credential.hd !== 'kmitl.ac.th') {
@@ -158,7 +158,7 @@ window.App = {
 
     this._renderNavRight();
     this._updateAuthLinks();
-    showToast('success', 'เข้าสู่ระบบสำเร็จ', `ยินดีต้อนรับ ${this.state.user.givenName}`);
+    showToast('success', t('toast.loginSuccess'), `${t('toast.welcome')} ${this.state.user.givenName}`);
 
     // Load notification count in background
     setTimeout(() => this._loadNotifData(), 500);
@@ -175,7 +175,7 @@ window.App = {
     this._renderNavRight();
     this._renderGSI();
     this._updateAuthLinks();
-    showToast('info', 'ออกจากระบบแล้ว', '');
+    showToast('info', t('toast.loggedOut'), '');
     this.navigate('home');
   },
 
@@ -272,7 +272,7 @@ window.App = {
             ${av}
             <div style="flex:1;min-width:0;">
               <div style="font-size:14px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.givenName||u.name.split(' ')[0]}</div>
-              <div style="font-size:11px;color:var(--accent);font-weight:600;">${u.roleLabel}</div>
+              <div style="font-size:11px;color:var(--accent);font-weight:600;">${t('role.' + u.role)}</div>
             </div>
             <button onclick="navClose();App.logout();" class="mobile-logout-btn">${t('logout')}</button>
           </div>`;
@@ -285,7 +285,7 @@ window.App = {
       const notifCount = this._notifCount || 0;
       el.innerHTML = `
         ${cartBtnHtml}
-        <button class="notif-btn" id="notif-btn" onclick="App._toggleNotifDropdown(event)" title="การแจ้งเตือน">
+        <button class="notif-btn" id="notif-btn" onclick="App._toggleNotifDropdown(event)" title="${t('notif.btnTitle')}">
           🔔
           <span class="notif-badge" id="notif-badge" style="display:${notifCount > 0 ? 'flex' : 'none'};">${notifCount}</span>
         </button>
@@ -293,7 +293,7 @@ window.App = {
           ${avatarHtml}
           <div>
             <div class="user-name">${u.givenName || u.name.split(' ')[0]}</div>
-            <div class="user-role">${u.roleLabel}</div>
+            <div class="user-role">${t('role.' + u.role)}</div>
           </div>
           <div class="user-caret">▾</div>
         </div>`;
@@ -325,23 +325,23 @@ window.App = {
     menu.innerHTML = `
       <div class="dropdown-header">
         <div class="dropdown-user-name">${u.name}</div>
-        <div class="dropdown-user-role">${u.roleLabel}</div>
+        <div class="dropdown-user-role">${t('role.' + u.role)}</div>
         <div class="dropdown-user-email">${u.email}</div>
       </div>
       <div class="dropdown-items">
         <div class="dropdown-item" onclick="closeDropdown();App.navigate('my-bookings');">
-          <span>📋</span> การจองของฉัน
+          <span>📋</span> ${t('menu.myBookings')}
         </div>
         ${isStaff ? `
         <div class="dropdown-item" onclick="closeDropdown();App.navigate('dashboard');">
-          <span>📊</span> แดชบอร์ด
+          <span>📊</span> ${t('menu.dashboard')}
         </div>
         <a class="dropdown-item" href="${window.GSHEET_URL||GSHEET_URL}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">
-          <span>🗂️</span> ดูข้อมูลการจอง (Sheets)
+          <span>🗂️</span> ${t('menu.viewSheets')}
         </a>` : ''}
         <div class="dropdown-divider"></div>
         <div class="dropdown-item danger" onclick="closeDropdown();App.logout();">
-          <span>🚪</span> ออกจากระบบ
+          <span>🚪</span> ${t('menu.logout')}
         </div>
       </div>`;
     document.body.appendChild(menu);
@@ -867,7 +867,7 @@ window.App = {
           ${item.location ? `<div class="eq-meta"><span class="eq-meta-icon">📍</span><span>${escHtml(item.location)}</span></div>` : ''}
           ${item.detail   ? `<div class="eq-detail">${escHtml(item.detail)}</div>` : ''}
           ${qtyBadge}
-          ${isRAD         ? `<div class="eq-rad-badge">📅 จองข้ามวันได้</div>` : ''}
+          ${isRAD         ? `<div class="eq-rad-badge">${t('form.radBadge')}</div>` : ''}
         </div>
         <div class="eq-card-foot">
           <div class="eq-model">${item.model ? escHtml(item.model) : ''}</div>
@@ -877,7 +877,7 @@ window.App = {
   },
 
   _promptLogin() {
-    showToast('info', 'กรุณาเข้าสู่ระบบก่อน', 'คลิกปุ่ม Sign in with Google บน Navbar');
+    showToast('info', t('toast.loginRequired'), t('toast.loginHint'));
   },
 
   _skeletonGrid(n) {
@@ -895,19 +895,19 @@ window.App = {
   /* ================================================== CART SYSTEM */
   _addToCart(itemId) {
     if (!this.state.user) {
-      showToast('info', 'กรุณาเข้าสู่ระบบก่อน', 'คลิกปุ่ม Sign in with Google บน Navbar');
+      showToast('info', t('toast.loginRequired'), t('toast.loginHint'));
       return;
     }
     const item = this.state.inventory.find(i => i.id == itemId);
     if (!item) return;
     if (this.state.cart.some(c => c.item.id === item.id)) {
-      showToast('info', 'อยู่ในรายการจองแล้ว', item.name);
+      showToast('info', t('toast.alreadyInCart'), item.name);
       return;
     }
     this.state.cart.push({ item });
     this._renderNavRight();
     this._renderEquipGrid(); // refresh card buttons
-    showToast('success', 'เพิ่มลงรายการจองแล้ว', `${item.name} — ดูรายการที่ปุ่ม "📋 รายการจอง"`);
+    showToast('success', t('toast.addedToCart'), `${item.name} — ${t('toast.addedHint')}`);
   },
 
   _removeFromCart(itemId) {
@@ -924,11 +924,11 @@ window.App = {
 
   _openCart() {
     if (this.state.cart.length === 0) {
-      showToast('info', 'รายการจองว่างอยู่', 'เพิ่มอุปกรณ์จากหน้ารายการก่อน');
+      showToast('info', t('toast.cartEmpty'), t('toast.addFirst'));
       return;
     }
     if (!this.state.user) {
-      showToast('info', 'กรุณาเข้าสู่ระบบก่อน', '');
+      showToast('info', t('toast.loginRequired'), '');
       return;
     }
     this._renderCartModal();
@@ -992,24 +992,24 @@ window.App = {
       let dateFields = '';
       if (isRAD) {
         dateFields = `
-          <div class="info-box accent" style="margin-bottom:10px;padding:10px 12px;font-size:12px;">📅 จองข้ามวันได้</div>
+          <div class="info-box accent" style="margin-bottom:10px;padding:10px 12px;font-size:12px;">${t('form.radBadge')}</div>
           <div class="form-row" style="margin-bottom:10px;">
             <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label" style="font-size:12px;">วันที่เริ่ม <span class="required">*</span></label>
+              <label class="form-label" style="font-size:12px;">${t('form.startDate')} <span class="required">*</span></label>
               <input type="date" class="form-input" id="${itemKey}_start" min="${today}" max="${maxDate}">
             </div>
             <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label" style="font-size:12px;">เวลาเริ่ม <span class="required">*</span></label>
+              <label class="form-label" style="font-size:12px;">${t('form.startTime')} <span class="required">*</span></label>
               <input type="time" class="form-input" id="${itemKey}_start_time" value="09:00" min="09:00" max="16:00" step="3600">
             </div>
           </div>
           <div class="form-row" style="margin-bottom:0;">
             <div class="form-group" style="margin-bottom:10px;">
-              <label class="form-label" style="font-size:12px;">วันที่สิ้นสุด <span class="required">*</span></label>
+              <label class="form-label" style="font-size:12px;">${t('form.endDate')} <span class="required">*</span></label>
               <input type="date" class="form-input" id="${itemKey}_end" min="${today}" max="${maxDate}">
             </div>
             <div class="form-group" style="margin-bottom:10px;">
-              <label class="form-label" style="font-size:12px;">เวลาสิ้นสุด <span class="required">*</span></label>
+              <label class="form-label" style="font-size:12px;">${t('form.endTime')} <span class="required">*</span></label>
               <input type="time" class="form-input" id="${itemKey}_end_time" value="16:00" min="09:00" max="16:00" step="3600">
             </div>
           </div>`;
@@ -1017,24 +1017,24 @@ window.App = {
         // All non-RAD items (instrument, glassware, scientific, chemical): date + time slots
         dateFields = `
           <div class="form-group" style="margin-bottom:10px;">
-            <label class="form-label" style="font-size:12px;">วันที่จอง <span class="required">*</span></label>
+            <label class="form-label" style="font-size:12px;">${t('form.bookDate')} <span class="required">*</span></label>
             <input type="date" class="form-input" id="${itemKey}_date" min="${minDate}" max="${maxDate}"
               onchange="App._cartDateChange('${itemKey}', this.value)">
-            ${isTimed ? `<div class="form-hint">ล่วงหน้าอย่างน้อย 3 วันทำการ • จ–ศ เท่านั้น</div>` : `<div class="form-hint">จ–ศ เท่านั้น</div>`}
+            ${isTimed ? `<div class="form-hint">${t('form.hint3days')}</div>` : `<div class="form-hint">${t('form.hintWeekday')}</div>`}
           </div>
           <div id="${itemKey}_slots_group" style="display:none;margin-bottom:10px;">
-            <label class="form-label" style="font-size:12px;">ช่วงเวลา <span class="required">*</span></label>
+            <label class="form-label" style="font-size:12px;">${t('form.timeSlot')} <span class="required">*</span></label>
             <div class="time-slots" id="${itemKey}_slots" style="flex-wrap:wrap;gap:6px;"></div>
           </div>
           ${!isChemical ? `
           <div class="form-group" style="margin-bottom:10px;">
-            <label class="form-label" style="font-size:12px;">จำนวนที่ต้องการ <span class="required">*</span>
-              ${item.maxQty > 0 ? `<span style="font-weight:400;color:var(--text-3);">(มีในคลัง: ${item.maxQty} ชิ้น)</span>` : ''}
+            <label class="form-label" style="font-size:12px;">${t('form.qty')} <span class="required">*</span>
+              ${item.maxQty > 0 ? `<span style="font-weight:400;color:var(--text-3);">(${t('form.inStock')} ${item.maxQty} ${t('equip.unit.qty')})</span>` : ''}
             </label>
-            <input type="number" class="form-input" id="${itemKey}_qty" min="1" max="${item.maxQty || 9999}" value="1" placeholder="จำนวน">
+            <input type="number" class="form-input" id="${itemKey}_qty" min="1" max="${item.maxQty || 9999}" value="1" placeholder="${t('form.qty.ph')}">
           </div>` : ''}
           ${isChemical && item.detail ? `
-            <div class="cart-section-divider">รายละเอียดสารเคมี</div>
+            <div class="cart-section-divider">${t('cart.div.chem')}</div>
             <div class="info-box" style="margin-bottom:10px;padding:10px 12px;font-size:12px;background:var(--bg);">
               📋 ${escHtml(item.detail)}
             </div>
@@ -1049,9 +1049,9 @@ window.App = {
                 <span style="background:${cat.bgColor};color:${cat.textColor};padding:4px 8px;border-radius:6px;font-size:16px;">${cat.icon}</span>
                 ${escHtml(item.name)}
               </div>
-              ${item.location ? `<div class="cart-item-qty-info">📍 ${escHtml(item.location)}${item.maxQty > 0 ? ` · มีในคลัง: ${item.maxQty} ${cat.bookingType === 'timed' ? 'เครื่อง' : 'ชิ้น'}` : ''}</div>` : ''}
+              ${item.location ? `<div class="cart-item-qty-info">📍 ${escHtml(item.location)}${item.maxQty > 0 ? ` · ${t('form.inStock')} ${item.maxQty} ${cat.bookingType === 'timed' ? t('equip.unit.timed') : t('equip.unit.qty')}` : ''}</div>` : ''}
             </div>
-            <button class="btn-remove-cart" onclick="App._removeFromCart('${escHtml(item.id)}')">ลบ ✕</button>
+            <button class="btn-remove-cart" onclick="App._removeFromCart('${escHtml(item.id)}')">${t('cart.remove')}</button>
           </div>
           ${dateFields}
         </div>`;
@@ -1062,50 +1062,50 @@ window.App = {
         <div class="modal-head">
           <div class="modal-head-icon" style="background:var(--accent-light);color:var(--accent);font-size:20px;">📋</div>
           <div class="modal-head-info">
-            <div class="modal-title">รายการจอง (${this.state.cart.length} รายการ)</div>
-            <div class="modal-subtitle">กรอกรายละเอียดแล้วกดยืนยันเพื่อส่งคำขอ</div>
+            <div class="modal-title">${t('cart.modal.title')} (${this.state.cart.length} ${t('toast.items')})</div>
+            <div class="modal-subtitle">${t('cart.modal.subtitle')}</div>
           </div>
           <button class="modal-close" onclick="App.closeModal()">✕</button>
         </div>
         <div class="modal-body">
-          <div class="cart-section-divider">ข้อมูลร่วม</div>
+          <div class="cart-section-divider">${t('cart.div.common')}</div>
 
           <div class="form-group">
-            <label class="form-label">อาจารย์ที่ปรึกษา <span class="required">*</span></label>
+            <label class="form-label">${t('cart.advisor.label')} <span class="required">*</span></label>
             <select class="form-select" id="cart-advisor">
-              <option value="">-- เลือกอาจารย์ที่ปรึกษา --</option>
+              <option value="">${t('cart.advisor.ph')}</option>
               ${advisorOpts}
             </select>
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">วิชา / โครงการ</label>
+              <label class="form-label">${t('cart.course.label')}</label>
               <select class="form-select" id="cart-course">
-                <option value="ทั่วไป">ทั่วไป</option>
+                <option value="ทั่วไป">${t('course.general')}</option>
                 <option value="TEAM PROJECT 2">TEAM PROJECT 2</option>
-                <option value="ปฏิบัติการวิศวกรรมเคมี">ปฏิบัติการวิศวกรรมเคมี</option>
-                <option value="การออกแบบกระบวนการเคมี">การออกแบบกระบวนการเคมี</option>
-                <option value="Senior Project / โครงงานนักศึกษา">Senior Project / โครงงานนักศึกษา</option>
-                <option value="งานวิจัย">งานวิจัย</option>
+                <option value="ปฏิบัติการวิศวกรรมเคมี">${t('course.labChE')}</option>
+                <option value="การออกแบบกระบวนการเคมี">${t('course.processDesign')}</option>
+                <option value="Senior Project / โครงงานนักศึกษา">${t('course.seniorProject')}</option>
+                <option value="งานวิจัย">${t('course.research')}</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">หมายเหตุ (ถ้ามี)</label>
-              <textarea class="form-textarea" id="cart-note" placeholder="รายละเอียดเพิ่มเติม..." style="min-height:44px;"></textarea>
+              <label class="form-label">${t('cart.note.label')}</label>
+              <textarea class="form-textarea" id="cart-note" placeholder="${t('cart.note.ph')}" style="min-height:44px;"></textarea>
             </div>
           </div>
 
-          <div class="cart-section-divider">รายละเอียดแต่ละรายการ</div>
+          <div class="cart-section-divider">${t('cart.div.items')}</div>
           ${itemsHtml}
         </div>
         <div class="modal-foot" style="justify-content:space-between;">
           <button class="btn btn-secondary" onclick="App._clearCart()">
-            🗑️ ล้างรายการ
+            ${t('cart.clearBtn')}
           </button>
           <div style="display:flex;gap:10px;">
-            <button class="btn btn-secondary" onclick="App.closeModal()">ยกเลิก</button>
+            <button class="btn btn-secondary" onclick="App.closeModal()">${t('cart.cancelBtn')}</button>
             <button class="btn btn-primary" id="cart-submit-btn" onclick="App._submitCart()">
-              ✅ ยืนยันการจอง (${this.state.cart.length})
+              ${t('cart.confirmBtn')} (${this.state.cart.length})
             </button>
           </div>
         </div>
@@ -1132,7 +1132,7 @@ window.App = {
     const day = d.getDay();
     if (day === 0 || day === 6 || this.state.holidays.has(dateStr)) {
       slotsGroup.style.display = 'none';
-      showToast('warning', 'วันที่เลือกไม่ถูกต้อง', 'กรุณาเลือกวันจันทร์–ศุกร์ ที่ไม่ใช่วันหยุด');
+      showToast('warning', t('toast.invalidDate'), t('toast.invalidDateDesc'));
       return;
     }
 
@@ -1149,9 +1149,9 @@ window.App = {
     slotsGroup.style.display = '';
     const slots = [];
     for (let h = 9; h <= 14; h++)
-      slots.push({ start:`${pad(h)}:00`, end:`${pad(h+2)}:00`, label:`${pad(h)}:00 – ${pad(h+2)}:00 (2 ชม.)` });
+      slots.push({ start:`${pad(h)}:00`, end:`${pad(h+2)}:00`, label:`${pad(h)}:00 – ${pad(h+2)}:00 ${t('slot.2h')}` });
     for (let h = 9; h <= 15; h++)
-      slots.push({ start:`${pad(h)}:00`, end:`${pad(h+1)}:00`, label:`${pad(h)}:00 – ${pad(h+1)}:00 (1 ชม.)` });
+      slots.push({ start:`${pad(h)}:00`, end:`${pad(h+1)}:00`, label:`${pad(h)}:00 – ${pad(h+1)}:00 ${t('slot.1h')}` });
     slots.sort((a,b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end));
 
     slotsEl.innerHTML = slots.map(s => {
@@ -1165,8 +1165,8 @@ window.App = {
         return slotStart < bEnd && slotEnd > bStart;
       }).length : 0;
       const full = taken >= maxQty;
-      const disabledAttr = full ? ' class="time-slot disabled" title="จองเต็มแล้ว"' : ` class="time-slot" onclick="App._cartSelectSlot(this, '${itemKey}')"`;
-      return `<div${disabledAttr} data-start="${dateStr}T${pad2(s.start)}:00" data-end="${dateStr}T${pad2(s.end)}:00">${s.label}${full ? ' <span style="font-size:10px;opacity:.7;">(เต็ม)</span>' : ''}</div>`;
+      const disabledAttr = full ? ` class="time-slot disabled" title="${t('slot.full')}"` : ` class="time-slot" onclick="App._cartSelectSlot(this, '${itemKey}')"`;
+      return `<div${disabledAttr} data-start="${dateStr}T${pad2(s.start)}:00" data-end="${dateStr}T${pad2(s.end)}:00">${s.label}${full ? ` <span style="font-size:10px;opacity:.7;">${t('slot.full')}</span>` : ''}</div>`;
     }).join('');
   },
 
@@ -1183,7 +1183,7 @@ window.App = {
     const course  = document.getElementById('cart-course')?.value || 'ทั่วไป';
     const note    = document.getElementById('cart-note')?.value || '';
 
-    if (!advisor) { showToast('warning', 'กรุณาเลือกอาจารย์ที่ปรึกษา', ''); return; }
+    if (!advisor) { showToast('warning', t('toast.selectAdvisor'), ''); return; }
 
     // Collect per-item data and validate
     const submissions = [];
@@ -1201,13 +1201,13 @@ window.App = {
         const st = document.getElementById(`${key}_start_time`)?.value || '09:00';
         const ed = document.getElementById(`${key}_end`)?.value;
         const et = document.getElementById(`${key}_end_time`)?.value   || '16:00';
-        if (!sd || !ed) { showToast('warning', `กรุณาเลือกวันที่สำหรับ "${item.name}"`, ''); return; }
+        if (!sd || !ed) { showToast('warning', `${t('toast.selectDate')} "${item.name}"`, ''); return; }
         start = `${sd}T${st}:00`;
         end   = `${ed}T${et}:00`;
       } else {
         // All non-RAD: date + time slot
         const slot = document.querySelector(`#${key}_slots .time-slot.selected`);
-        if (!slot) { showToast('warning', `กรุณาเลือกช่วงเวลาสำหรับ "${item.name}"`, ''); return; }
+        if (!slot) { showToast('warning', `${t('toast.selectSlot')} "${item.name}"`, ''); return; }
         start = slot.dataset.start;
         end   = slot.dataset.end;
         if (!isChemical) quantity = document.getElementById(`${key}_qty`)?.value || '1';
@@ -1240,7 +1240,7 @@ window.App = {
           advisorEmail: advisor
         });
         if (result.success) successCount++;
-        else errors.push(`${s.item.name}: ${result.error || 'ผิดพลาด'}`);
+        else errors.push(`${s.item.name}: ${result.error || t('toast.credError')}`);
       } catch (e) {
         errors.push(`${s.item.name}: ${e.message}`);
       }
@@ -1255,20 +1255,20 @@ window.App = {
       this._allBookings   = [];
       this.closeModal();
       this._renderNavRight();
-      showToast('success', `ส่งคำขอจองสำเร็จ ${successCount} รายการ!`, errors.length > 0 ? `ไม่สำเร็จ ${errors.length} รายการ` : '');
+      showToast('success', `${t('toast.submitOk')} ${successCount} ${t('toast.items')}!`, errors.length > 0 ? `${t('toast.failCount')} ${errors.length} ${t('toast.items')}` : '');
     }
     if (errors.length > 0 && successCount === 0) {
-      showToast('error', 'ส่งคำขอไม่สำเร็จ', errors.join('\n'));
+      showToast('error', t('toast.submitFail'), errors.join('\n'));
     }
   },
 
   _clearCart() {
-    if (!confirm('ล้างรายการจองทั้งหมด?')) return;
+    if (!confirm(t('confirm.clearCart'))) return;
     this.state.cart = [];
     this.closeModal();
     this._renderNavRight();
     if (document.getElementById('equip-grid')) this._renderEquipGrid();
-    showToast('info', 'ล้างรายการจองแล้ว', '');
+    showToast('info', t('toast.cartCleared'), '');
   },
 
   _minBookingDate() {
@@ -1367,8 +1367,8 @@ window.App = {
     dropdown.className = 'notif-dropdown';
     dropdown.innerHTML = `
       <div class="notif-dropdown-head">
-        <span class="notif-dropdown-title">🔔 การแจ้งเตือน</span>
-        ${items.length > 0 ? `<button class="notif-mark-read" onclick="App._markNotifsRead();document.getElementById('notif-dropdown')?.remove();">อ่านทั้งหมด</button>` : ''}
+        <span class="notif-dropdown-title">${t('notif.header')}</span>
+        ${items.length > 0 ? `<button class="notif-mark-read" onclick="App._markNotifsRead();document.getElementById('notif-dropdown')?.remove();">${t('notif.markRead')}</button>` : ''}
       </div>
       <div class="notif-list">
         ${items.length > 0 ? items.map((n, i) => `
@@ -1378,7 +1378,7 @@ window.App = {
               <div class="notif-item-title">${escHtml(n.title)}</div>
               <div class="notif-item-desc">${escHtml(n.desc)}</div>
             </div>
-          </div>`).join('') : `<div class="notif-empty">ไม่มีการแจ้งเตือนใหม่</div>`}
+          </div>`).join('') : `<div class="notif-empty">${t('notif.empty')}</div>`}
       </div>`;
 
     document.body.appendChild(dropdown);
@@ -1550,18 +1550,18 @@ window.App = {
               ${showStudentName ? `<span>· 👤 ${escHtml(b.Name || '-')}</span>` : ''}
             </div>
           </div>
-          <span class="booking-badge ${badge}">${icon} ${escHtml(b.Status || 'N/A')}</span>
+          <span class="booking-badge ${badge}">${icon} ${escHtml(statusDisplay(b.Status || ''))}</span>
         </div>
         <div class="bk-item-body">
           <div class="bk-meta-row">
             <span class="bk-meta-item">📅 ${start}</span>
             ${end !== start && end !== '-' ? `<span class="bk-meta-item">↩ ${end}</span>` : ''}
-            <span class="bk-meta-item">📚 ${escHtml(b.Course || 'ทั่วไป')}</span>
+            <span class="bk-meta-item">📚 ${escHtml(b.Course || t('course.general'))}</span>
             ${b.CurrentApproverName ? `<span class="bk-meta-item">👤 ${escHtml(b.CurrentApproverName)}</span>` : ''}
           </div>
           <div class="bk-progress">${progressHtml}</div>
           <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
-            ${isCancellable ? `<button class="btn-cancel" onclick="App._cancelBooking('${escHtml(b.BookingID)}')">ยกเลิกการจอง</button>` : ''}
+            ${isCancellable ? `<button class="btn-cancel" onclick="App._cancelBooking('${escHtml(b.BookingID)}')">${t('mybook.cancel')}</button>` : ''}
           </div>
         </div>
       </div>`;
@@ -1569,11 +1569,11 @@ window.App = {
 
   _wfSteps() {
     return [
-      { icon: '📝', label: 'ส่งคำขอ' },
-      { icon: '👨‍🏫', label: 'อ.ที่ปรึกษา' },
-      { icon: '🏛️', label: 'หัวหน้าภาค' },
-      { icon: '🔬', label: 'เจ้าหน้าที่' },
-      { icon: '✅', label: 'เสร็จสิ้น' },
+      { icon: '📝', label: t('bk.step.submit') },
+      { icon: '👨‍🏫', label: t('bk.step.advisor') },
+      { icon: '🏛️', label: t('bk.step.head') },
+      { icon: '🔬', label: t('bk.step.staff') },
+      { icon: '✅', label: t('bk.step.done') },
     ];
   },
 
@@ -1590,15 +1590,15 @@ window.App = {
   },
 
   async _cancelBooking(bookingId) {
-    if (!confirm('ยืนยันการยกเลิกการจองนี้?')) return;
+    if (!confirm(t('confirm.cancelBook'))) return;
     const u = this.state.user;
     try {
       await apiPost({ action: 'cancelBooking', bookingId, email: u.email });
       this.state.bookings = [];
-      showToast('success', 'ยกเลิกการจองแล้ว', '');
+      showToast('success', t('toast.cancelOk'), '');
       this._fetchAndRenderMyBookings();
     } catch (e) {
-      showToast('error', 'ยกเลิกไม่สำเร็จ', e.message);
+      showToast('error', t('toast.cancelFail'), e.message);
     }
   },
 
@@ -1676,7 +1676,7 @@ window.App = {
       this._notifCount = this._allBookings.filter(b => this._canApprove(b)).length;
       this._updateNotifBadge();
     } catch (e) {
-      showToast('error', 'โหลด dashboard ไม่สำเร็จ', e.message);
+      showToast('error', t('toast.dashFail'), e.message);
     }
   },
 
@@ -1725,7 +1725,7 @@ window.App = {
       : all.slice().reverse().slice(0, 200);
 
     if (items.length === 0) {
-      el.innerHTML = `<div class="bk-empty"><div class="bk-empty-icon">🎉</div><div class="bk-empty-title">ไม่มีรายการที่รอดำเนินการ</div></div>`;
+      el.innerHTML = `<div class="bk-empty"><div class="bk-empty-icon">🎉</div><div class="bk-empty-title">${t('dash.pending.none')}</div></div>`;
       return;
     }
 
@@ -1733,13 +1733,13 @@ window.App = {
     const bulkBar = tab === 'pending' && items.length > 0 ? `
       <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--warning-bg);border-bottom:1px solid #fde68a;gap:12px;flex-wrap:wrap;">
         <span style="font-size:13px;font-weight:700;color:#92400e;">
-          ⏳ รอการอนุมัติจากคุณ ${items.length} รายการ
+          ⏳ ${items.length} ${t('dash.pending.waiting')}
         </span>
         <div style="display:flex;gap:8px;">
           <button class="btn btn-sm" style="background:#f0fdf4;color:var(--success);border:1px solid #86efac;font-weight:700;"
-            onclick="App._approveAllPending()">✅ อนุมัติทั้งหมด (${items.length})</button>
+            onclick="App._approveAllPending()">✅ ${t('dash.approveAll')} (${items.length})</button>
           <button class="btn btn-sm" style="background:#fef2f2;color:var(--danger);border:1px solid #fecaca;font-weight:700;"
-            onclick="App._rejectAllPending()">❌ ปฏิเสธทั้งหมด (${items.length})</button>
+            onclick="App._rejectAllPending()">❌ ${t('dash.rejectAll')} (${items.length})</button>
         </div>
       </div>` : '';
 
@@ -1751,9 +1751,9 @@ window.App = {
 
       // Step label
       const stepLabel = {
-        [STATUS_P1]: '1. รออ.ที่ปรึกษา',
-        [STATUS_P2]: '2. รอหัวหน้าภาค',
-        [STATUS_P3]: '3. รอเจ้าหน้าที่',
+        [STATUS_P1]: t('dash.status.p1'),
+        [STATUS_P2]: t('dash.status.p2'),
+        [STATUS_P3]: t('dash.status.p3'),
       }[b.Status] || escHtml(b.Status || '-');
 
       return `
@@ -1773,9 +1773,9 @@ window.App = {
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
               ${canAct ? `
                 <button class="btn btn-sm" style="background:#f0fdf4;color:var(--success);border:1px solid #86efac;"
-                  onclick="App._approveBooking('${escHtml(b.BookingID)}')">✅ อนุมัติ</button>
+                  onclick="App._approveBooking('${escHtml(b.BookingID)}')">${t('dash.approve')}</button>
                 <button class="btn btn-sm" style="background:#fef2f2;color:var(--danger);border:1px solid #fecaca;"
-                  onclick="App._rejectBooking('${escHtml(b.BookingID)}')">❌ ปฏิเสธ</button>
+                  onclick="App._rejectBooking('${escHtml(b.BookingID)}')">${t('dash.reject')}</button>
               ` : `<span style="font-size:12px;color:var(--text-3);">${escHtml(b.CurrentApproverName || '-')}</span>`}
             </div>
           </td>
@@ -1788,12 +1788,12 @@ window.App = {
         <table class="dash-v2-table">
           <thead>
             <tr>
-              <th>อุปกรณ์ / BookingID</th>
-              <th>ผู้จอง</th>
-              <th>วิชา</th>
-              <th>วันเวลาเริ่ม</th>
-              <th>สถานะ</th>
-              <th>การดำเนินการ</th>
+              <th>${t('dash.col.equipment')}</th>
+              <th>${t('dash.col.booker')}</th>
+              <th>${t('dash.col.course')}</th>
+              <th>${t('dash.col.datetime')}</th>
+              <th>${t('dash.col.status')}</th>
+              <th>${t('dash.col.action')}</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -1826,30 +1826,30 @@ window.App = {
   },
 
   async _approveBooking(bookingId) {
-    if (!confirm('ยืนยันการอนุมัติการจองนี้?')) return;
+    if (!confirm(t('confirm.approve'))) return;
     const u = this.state.user;
     try {
       const result = await apiPost({ action: 'approveBooking', bookingId, staffEmail: u?.email });
-      if (!result.success) throw new Error(result.error || 'เกิดข้อผิดพลาด');
-      showToast('success', 'อนุมัติสำเร็จ', '');
+      if (!result.success) throw new Error(result.error || t('toast.credError'));
+      showToast('success', t('toast.approveOk'), '');
       this._allBookings = [];
       await this._loadDashboard();
     } catch (e) {
-      showToast('error', 'อนุมัติไม่สำเร็จ', e.message);
+      showToast('error', t('toast.approveFail'), e.message);
     }
   },
 
   async _rejectBooking(bookingId) {
-    if (!confirm('ยืนยันการปฏิเสธการจองนี้?')) return;
+    if (!confirm(t('confirm.reject'))) return;
     const u = this.state.user;
     try {
       const result = await apiPost({ action: 'rejectBooking', bookingId, staffEmail: u?.email });
-      if (!result.success) throw new Error(result.error || 'เกิดข้อผิดพลาด');
-      showToast('info', 'ปฏิเสธการจองแล้ว', '');
+      if (!result.success) throw new Error(result.error || t('toast.credError'));
+      showToast('info', t('toast.rejectOk'), '');
       this._allBookings = [];
       await this._loadDashboard();
     } catch (e) {
-      showToast('error', 'ปฏิเสธไม่สำเร็จ', e.message);
+      showToast('error', t('toast.rejectFail'), e.message);
     }
   },
 
@@ -1857,10 +1857,10 @@ window.App = {
     const u = this.state.user;
     const pending = this._allBookings.filter(b => this._canApprove(b));
     if (pending.length === 0) return;
-    if (!confirm(`ยืนยันการอนุมัติทั้งหมด ${pending.length} รายการ?`)) return;
+    if (!confirm(`${t('confirm.approveAll')} ${pending.length} ${t('toast.items')}?`)) return;
 
     let ok = 0, fail = 0;
-    showToast('info', `กำลังอนุมัติ ${pending.length} รายการ...`, '');
+    showToast('info', `${t('toast.approving')} ${pending.length} ${t('toast.items')}...`, '');
     for (const b of pending) {
       try {
         const r = await apiPost({ action: 'approveBooking', bookingId: b.BookingID, staffEmail: u?.email });
@@ -1869,17 +1869,17 @@ window.App = {
     }
     this._allBookings = [];
     await this._loadDashboard();
-    showToast('success', `อนุมัติสำเร็จ ${ok} รายการ${fail > 0 ? ` (ไม่สำเร็จ ${fail})` : ''}`, '');
+    showToast('success', `${t('toast.approveOk')} ${ok} ${t('toast.items')}${fail > 0 ? ` (${t('toast.failCount')} ${fail})` : ''}`, '');
   },
 
   async _rejectAllPending() {
     const u = this.state.user;
     const pending = this._allBookings.filter(b => this._canApprove(b));
     if (pending.length === 0) return;
-    if (!confirm(`ยืนยันการปฏิเสธทั้งหมด ${pending.length} รายการ?`)) return;
+    if (!confirm(`${t('confirm.rejectAll')} ${pending.length} ${t('toast.items')}?`)) return;
 
     let ok = 0, fail = 0;
-    showToast('info', `กำลังปฏิเสธ ${pending.length} รายการ...`, '');
+    showToast('info', `${t('toast.rejecting')} ${pending.length} ${t('toast.items')}...`, '');
     for (const b of pending) {
       try {
         const r = await apiPost({ action: 'rejectBooking', bookingId: b.BookingID, staffEmail: u?.email });
@@ -1888,7 +1888,7 @@ window.App = {
     }
     this._allBookings = [];
     await this._loadDashboard();
-    showToast('info', `ปฏิเสธ ${ok} รายการ${fail > 0 ? ` (ไม่สำเร็จ ${fail})` : ''}`, '');
+    showToast('info', `${t('toast.rejectOk')} ${ok} ${t('toast.items')}${fail > 0 ? ` (${t('toast.failCount')} ${fail})` : ''}`, '');
   },
 
   /* ================================================== MODAL */
@@ -1961,6 +1961,18 @@ function statusStyle(status) {
     case STATUS_CAN: return { cls: 'cancelled', badge: 'status-cancelled', icon: '🚫' };
     default:         return { cls: '',          badge: 'status-cancelled', icon: '❓' };
   }
+}
+
+function statusDisplay(status) {
+  const map = {
+    [STATUS_P1]: t('bk.status.p1'),
+    [STATUS_P2]: t('bk.status.p2'),
+    [STATUS_P3]: t('bk.status.p3'),
+    [STATUS_OK]: t('bk.status.ok'),
+    [STATUS_REJ]: t('bk.status.rej'),
+    [STATUS_CAN]: t('bk.status.can'),
+  };
+  return map[status] || status || 'N/A';
 }
 
 function jwtDecode(token) {
