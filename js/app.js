@@ -46,6 +46,7 @@ window.App = {
     cart:        [],       // cart items: { item, id }
     initLoaded:  false
   },
+  _allBookings: [],
   _notifCount: 0,
 
 
@@ -1004,7 +1005,7 @@ window.App = {
     }
   },
 
-  _cartDateChange(itemKey, dateStr) {
+  async _cartDateChange(itemKey, dateStr) {
     const slotsGroup = document.getElementById(`${itemKey}_slots_group`);
     const slotsEl    = document.getElementById(`${itemKey}_slots`);
     if (!slotsGroup || !slotsEl) return;
@@ -1017,6 +1018,17 @@ window.App = {
       showToast('warning', 'วันที่เลือกไม่ถูกต้อง', 'กรุณาเลือกวันจันทร์–ศุกร์ ที่ไม่ใช่วันหยุด');
       return;
     }
+
+    // Fetch all bookings once for conflict display
+    if (this._allBookings.length === 0) {
+      try { this._allBookings = await apiGet('getAllBookings'); } catch (_) {}
+    }
+
+    const idx  = parseInt(itemKey.replace('ci_', ''));
+    const item = this.state.cart[idx]?.item;
+    const maxQty = (item?.maxQty) || 1;
+    const activeStatuses = [STATUS_P1, STATUS_P2, STATUS_P3, STATUS_OK];
+
     slotsGroup.style.display = '';
     const slots = [];
     for (let h = 9; h <= 14; h++)
@@ -1024,9 +1036,21 @@ window.App = {
     for (let h = 9; h <= 15; h++)
       slots.push({ start:`${h}:00`, end:`${h+1}:00`, label:`${pad(h)}:00 – ${pad(h+1)}:00 (1 ชม.)` });
     slots.sort((a,b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end));
-    slotsEl.innerHTML = slots.map(s => `
-      <div class="time-slot" data-start="${dateStr}T${pad2(s.start)}:00" data-end="${dateStr}T${pad2(s.end)}:00"
-           onclick="App._cartSelectSlot(this, '${itemKey}')">${s.label}</div>`).join('');
+
+    slotsEl.innerHTML = slots.map(s => {
+      const slotStart = new Date(`${dateStr}T${pad2(s.start)}:00`);
+      const slotEnd   = new Date(`${dateStr}T${pad2(s.end)}:00`);
+      const taken = item ? this._allBookings.filter(b => {
+        if (String(b.ItemID) !== String(item.id)) return false;
+        if (!activeStatuses.includes(String(b.Status))) return false;
+        const bStart = new Date(b.Start);
+        const bEnd   = new Date(b.End);
+        return slotStart < bEnd && slotEnd > bStart;
+      }).length : 0;
+      const full = taken >= maxQty;
+      const disabledAttr = full ? ' class="time-slot disabled" title="จองเต็มแล้ว"' : ` class="time-slot" onclick="App._cartSelectSlot(this, '${itemKey}')"`;
+      return `<div${disabledAttr} data-start="${dateStr}T${pad2(s.start)}:00" data-end="${dateStr}T${pad2(s.end)}:00">${s.label}${full ? ' <span style="font-size:10px;opacity:.7;">(เต็ม)</span>' : ''}</div>`;
+    }).join('');
   },
 
   _cartSelectSlot(el, itemKey) {
@@ -1121,6 +1145,7 @@ window.App = {
     if (successCount > 0) {
       this.state.cart     = [];
       this.state.bookings = [];
+      this._allBookings   = [];
       this.closeModal();
       this._renderNavRight();
       showToast('success', `ส่งคำขอจองสำเร็จ ${successCount} รายการ!`, errors.length > 0 ? `ไม่สำเร็จ ${errors.length} รายการ` : '');
