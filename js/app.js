@@ -854,14 +854,15 @@ window.App = {
         locale: typeof flatpickr.l10ns?.th !== 'undefined' ? 'th' : 'default'
       };
 
-      if (isTimed) {
-        const el = document.getElementById(`${itemKey}_date`);
-        if (el) flatpickr(el, { ...cfg, onChange: (_, ds) => App._cartDateChange(itemKey, ds) });
-      } else {
+      if (item.isRAD) {
         const s = document.getElementById(`${itemKey}_start`);
         const e = document.getElementById(`${itemKey}_end`);
         if (s) flatpickr(s, cfg);
         if (e) flatpickr(e, { ...cfg, minDate: today });
+      } else {
+        // All non-RAD: date + time slots
+        const el = document.getElementById(`${itemKey}_date`);
+        if (el) flatpickr(el, { ...cfg, onChange: (_, ds) => App._cartDateChange(itemKey, ds) });
       }
     });
   },
@@ -886,19 +887,7 @@ window.App = {
       const minDate = isTimed ? this._minBookingDate() : today;
 
       let dateFields = '';
-      if (isTimed) {
-        dateFields = `
-          <div class="form-group" style="margin-bottom:10px;">
-            <label class="form-label" style="font-size:12px;">วันที่จอง <span class="required">*</span></label>
-            <input type="date" class="form-input" id="${itemKey}_date" min="${minDate}" max="${maxDate}"
-              onchange="App._cartDateChange('${itemKey}', this.value)">
-            <div class="form-hint">ล่วงหน้าอย่างน้อย 3 วันทำการ • จ–ศ เท่านั้น</div>
-          </div>
-          <div id="${itemKey}_slots_group" style="display:none;margin-bottom:10px;">
-            <label class="form-label" style="font-size:12px;">ช่วงเวลา <span class="required">*</span></label>
-            <div class="time-slots" id="${itemKey}_slots" style="flex-wrap:wrap;gap:6px;"></div>
-          </div>`;
-      } else if (isRAD) {
+      if (isRAD) {
         dateFields = `
           <div class="info-box accent" style="margin-bottom:10px;padding:10px 12px;font-size:12px;">📅 จองข้ามวันได้</div>
           <div class="form-row" style="margin-bottom:10px;">
@@ -922,33 +911,25 @@ window.App = {
             </div>
           </div>`;
       } else {
+        // All non-RAD items (instrument, glassware, scientific, chemical): date + time slots
         dateFields = `
-          <div class="form-row" style="margin-bottom:10px;">
-            <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label" style="font-size:12px;">วันที่รับ <span class="required">*</span></label>
-              <input type="date" class="form-input" id="${itemKey}_start" min="${today}" max="${maxDate}">
-            </div>
-            <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label" style="font-size:12px;">เวลารับ <span class="required">*</span></label>
-              <input type="time" class="form-input" id="${itemKey}_start_time" value="09:00" min="09:00" max="16:00" step="3600">
-            </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label class="form-label" style="font-size:12px;">วันที่จอง <span class="required">*</span></label>
+            <input type="date" class="form-input" id="${itemKey}_date" min="${minDate}" max="${maxDate}"
+              onchange="App._cartDateChange('${itemKey}', this.value)">
+            ${isTimed ? `<div class="form-hint">ล่วงหน้าอย่างน้อย 3 วันทำการ • จ–ศ เท่านั้น</div>` : `<div class="form-hint">จ–ศ เท่านั้น</div>`}
           </div>
-          <div class="form-row" style="margin-bottom:10px;">
-            <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label" style="font-size:12px;">วันที่คืน <span class="required">*</span></label>
-              <input type="date" class="form-input" id="${itemKey}_end" min="${today}" max="${maxDate}">
-            </div>
-            <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label" style="font-size:12px;">เวลาคืน <span class="required">*</span></label>
-              <input type="time" class="form-input" id="${itemKey}_end_time" value="16:00" min="09:00" max="16:00" step="3600">
-            </div>
+          <div id="${itemKey}_slots_group" style="display:none;margin-bottom:10px;">
+            <label class="form-label" style="font-size:12px;">ช่วงเวลา <span class="required">*</span></label>
+            <div class="time-slots" id="${itemKey}_slots" style="flex-wrap:wrap;gap:6px;"></div>
           </div>
+          ${!isChemical ? `
           <div class="form-group" style="margin-bottom:10px;">
             <label class="form-label" style="font-size:12px;">จำนวนที่ต้องการ <span class="required">*</span>
               ${item.maxQty > 0 ? `<span style="font-weight:400;color:var(--text-3);">(มีในคลัง: ${item.maxQty} ชิ้น)</span>` : ''}
             </label>
             <input type="number" class="form-input" id="${itemKey}_qty" min="1" max="${item.maxQty || 9999}" value="1" placeholder="จำนวน">
-          </div>
+          </div>` : ''}
           ${isChemical && item.detail ? `
             <div class="cart-section-divider">รายละเอียดสารเคมี</div>
             <div class="info-box" style="margin-bottom:10px;padding:10px 12px;font-size:12px;background:var(--bg);">
@@ -1065,9 +1046,9 @@ window.App = {
     slotsGroup.style.display = '';
     const slots = [];
     for (let h = 9; h <= 14; h++)
-      slots.push({ start:`${h}:00`, end:`${h+2}:00`, label:`${pad(h)}:00 – ${pad(h+2)}:00 (2 ชม.)` });
+      slots.push({ start:`${pad(h)}:00`, end:`${pad(h+2)}:00`, label:`${pad(h)}:00 – ${pad(h+2)}:00 (2 ชม.)` });
     for (let h = 9; h <= 15; h++)
-      slots.push({ start:`${h}:00`, end:`${h+1}:00`, label:`${pad(h)}:00 – ${pad(h+1)}:00 (1 ชม.)` });
+      slots.push({ start:`${pad(h)}:00`, end:`${pad(h+1)}:00`, label:`${pad(h)}:00 – ${pad(h+1)}:00 (1 ชม.)` });
     slots.sort((a,b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end));
 
     slotsEl.innerHTML = slots.map(s => {
@@ -1112,12 +1093,7 @@ window.App = {
       const key     = `ci_${idx}`;
       let start = '', end = '', quantity = '', chemDetail = '';
 
-      if (isTimed) {
-        const slot = document.querySelector(`#${key}_slots .time-slot.selected`);
-        if (!slot) { showToast('warning', `กรุณาเลือกช่วงเวลาสำหรับ "${item.name}"`, ''); return; }
-        start = slot.dataset.start;
-        end   = slot.dataset.end;
-      } else if (isRAD) {
+      if (isRAD) {
         const sd = document.getElementById(`${key}_start`)?.value;
         const st = document.getElementById(`${key}_start_time`)?.value || '09:00';
         const ed = document.getElementById(`${key}_end`)?.value;
@@ -1126,14 +1102,12 @@ window.App = {
         start = `${sd}T${st}:00`;
         end   = `${ed}T${et}:00`;
       } else {
-        const sd = document.getElementById(`${key}_start`)?.value;
-        const st = document.getElementById(`${key}_start_time`)?.value || '09:00';
-        const ed = document.getElementById(`${key}_end`)?.value;
-        const et = document.getElementById(`${key}_end_time`)?.value   || '16:00';
-        quantity = document.getElementById(`${key}_qty`)?.value || '1';
-        if (!sd || !ed) { showToast('warning', `กรุณาเลือกวันที่สำหรับ "${item.name}"`, ''); return; }
-        start = `${sd}T${st}:00`;
-        end   = `${ed}T${et}:00`;
+        // All non-RAD: date + time slot
+        const slot = document.querySelector(`#${key}_slots .time-slot.selected`);
+        if (!slot) { showToast('warning', `กรุณาเลือกช่วงเวลาสำหรับ "${item.name}"`, ''); return; }
+        start = slot.dataset.start;
+        end   = slot.dataset.end;
+        if (!isChemical) quantity = document.getElementById(`${key}_qty`)?.value || '1';
         if (isChemical && item.detail) chemDetail = item.detail;
       }
 
