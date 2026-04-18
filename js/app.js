@@ -448,103 +448,165 @@ window.App = {
     const inv  = this.state.inventory;
     const u    = this.state.user;
 
-    const countFor = cat => inv.filter(i => i.category === cat).length;
-    const availFor = cat => inv.filter(i => i.category === cat && i.available).length;
+    const countFor  = cat => inv.filter(i => i.category === cat).length;
+    const availFor  = cat => inv.filter(i => i.category === cat && i.available).length;
+    const totalAvail = inv.filter(i => i.available).length;
+
+    const timestamp = new Date().toLocaleString(window.LANG === 'en' ? 'en-GB' : 'th-TH', {
+      hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok'
+    }) + (window.LANG === 'en' ? '' : ' น.');
+
+    const tickerSrc  = inv.length > 0
+      ? inv.slice(0, 14).map(i => i.name)
+      : Object.values(CAT_CONFIG).map(c => t('cat.' + c.id + '.name'));
+    const tickerHtml = tickerSrc.map(n => `<span>${n}</span> <em>·</em>`).join(' ');
 
     el.innerHTML = `
-      <!-- HERO -->
+      <!-- HERO (editorial) -->
       <section class="hero" id="hero-section">
         <div class="hero-spotlight" id="hero-spotlight"></div>
         <canvas id="hero-canvas"></canvas>
-        <img src="logo.png" alt="KCIB" class="hero-logo">
-        <div class="hero-eyebrow">${t('hero.eyebrow')}</div>
-        <h1 class="hero-title">${t('hero.title1')}<br><span>${t('hero.title2')}</span></h1>
-        <p class="hero-sub">${t('hero.sub')}</p>
-        ${u
-          ? `<div class="hero-welcome">
-               ${u.picture ? `<img src="${u.picture}" alt="" referrerpolicy="no-referrer">` : ''}
-               ${t('hero.welcome')}, ${u.givenName || u.name.split(' ')[0]}
-             </div>`
-          : `<a href="#instrument" class="hero-cta" onclick="App.navigate('instrument');return false;">
-               ${t('hero.cta')} <span>→</span>
-             </a>`
-        }
-        <div class="hero-scroll">↓</div>
+        <div class="hero-grid-bg"></div>
+        <div class="wrap hero-wrap">
+          <div class="hero-meta">
+            <span class="hm-row mono">KCIB v2.0</span>
+            <span class="hm-row">${t('hero.eyebrow')}</span>
+          </div>
+          <h1 class="hero-h1">
+            <span class="hh-serif">${t('hero.sub')}</span>
+            <span class="hh-l1">${t('hero.title1')} <em>KCIB</em></span>
+            <span class="hh-l2">${t('hero.title2')}</span>
+          </h1>
+          <div class="hero-foot">
+            <div class="hf-desc">
+              <p>${t('hero.sub')}</p>
+              <div class="hf-ctas">
+                ${u
+                  ? `<div class="hero-welcome">
+                       ${u.picture ? `<img src="${u.picture}" alt="" referrerpolicy="no-referrer">` : ''}
+                       ${t('hero.welcome')}, ${u.givenName || u.name.split(' ')[0]}
+                     </div>`
+                  : `<a href="#instrument" class="btn btn-dark btn-lg hero-cta" onclick="App.navigate('instrument');return false;">
+                       ${t('hero.cta')} <span>→</span>
+                     </a>`
+                }
+              </div>
+            </div>
+            <div class="hf-side">
+              <div class="hf-num">
+                <span class="hf-n" data-target="${totalAvail}">0</span>
+                <span class="hf-plus">+</span>
+              </div>
+              <div class="hf-l">${t('stat.available')}</div>
+              <div class="hf-rule"></div>
+              <div class="hf-meta">
+                ${Object.values(CAT_CONFIG).map(cat => `
+                  <div>
+                    <span>${t('cat.' + cat.id + '.nameShort')}</span>
+                    <span class="${availFor(cat.id) > 0 ? 'hf-ok' : ''}">${availFor(cat.id)} / ${countFor(cat.id)}</span>
+                  </div>`).join('')}
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
+
+      <!-- TICKER -->
+      <div class="hero-ticker">
+        <div class="ht-track">${tickerHtml} ${tickerHtml}</div>
+      </div>
 
       <!-- NOTICE -->
       <div class="notice-bar">${t('notice')}</div>
 
-      <!-- STATS -->
-      <section class="section">
-        <div class="section-inner">
-          <div class="stats-row reveal-group">
+      <!-- STATS (dark band) -->
+      <section class="stats">
+        <div class="wrap">
+          <div class="st-head">REAL-TIME DATA · KMITL ChE · ${t('section.updatedAt')}: ${timestamp}</div>
+          <div class="st-grid">
             ${[
-              { num: countFor('instrument'), label: t('stat.instrument') },
-              { num: countFor('glassware'),  label: t('stat.glassware') },
-              { num: countFor('scientific'), label: t('stat.scientific') },
-              { num: inv.filter(i => i.available).length, label: t('stat.available') },
+              { num: countFor('instrument'), label: t('stat.instrument'), sub: 'INSTRUMENTS' },
+              { num: countFor('glassware'),  label: t('stat.glassware'),  sub: 'GLASSWARE'   },
+              { num: countFor('scientific'), label: t('stat.scientific'), sub: 'SCIENTIFIC'  },
+              { num: totalAvail,             label: t('stat.available'),  sub: 'AVAILABLE'   },
             ].map(s => `
-              <div class="stat-card reveal">
-                <div class="stat-num" data-target="${s.num}">0</div>
-                <div class="stat-label">${s.label}</div>
+              <div class="st">
+                <span class="st-n" data-target="${s.num}">0</span>
+                <span class="st-l">${s.label}<em>${s.sub}</em></span>
               </div>`).join('')}
           </div>
+        </div>
+      </section>
 
-          <div class="section-label reveal">${t('section.catLabel')}</div>
-          <h2 class="section-title reveal">${t('section.catTitle')}</h2>
-          <p class="section-desc reveal">
-            ${t('section.catDesc')}<br>
-            <span class="realtime-ts">
-              <span class="realtime-dot"></span>
-              ${t('section.updatedAt')}: ${new Date().toLocaleString(window.LANG === 'en' ? 'en-GB' : 'th-TH', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok' })}${window.LANG === 'en' ? '' : ' น.'}
-            </span>
-          </p>
-
-          <div class="cat-grid reveal-group">
-            ${Object.values(CAT_CONFIG).map(cat => {
-              const name = t(`cat.${cat.id}.name`);
-              const desc = t(`cat.${cat.id}.desc`);
-              return `
-              <a class="cat-card reveal" href="#${cat.id}" onclick="App.navigate('${cat.id}');return false;">
-                <div class="cat-card-top">
-                  <div class="cat-icon" style="background:${cat.bgColor};color:${cat.textColor};">${cat.icon}</div>
-                  <div class="cat-info">
-                    <div class="cat-name" style="color:${cat.textColor};">${name}</div>
-                    <div class="cat-desc">${desc}</div>
-                  </div>
-                </div>
-                <div class="cat-card-bottom">
-                  <div class="cat-count">
-                    <span class="cat-count-num">${availFor(cat.id)}</span>
-                    <span>${t('cat.availOf')} ${countFor(cat.id)} ${t('cat.ready')}</span>
-                  </div>
-                  <div class="cat-arrow">→</div>
-                </div>
-              </a>`;
-            }).join('')}
+      <!-- CATEGORY INDEX -->
+      <section class="section">
+        <div class="wrap">
+          <div class="sec-head">
+            <div>
+              <span class="sh-tag">${t('section.catLabel')}</span>
+              <h2 class="sh-h">${t('section.catTitle')}</h2>
+            </div>
+            <p class="sh-r">
+              ${t('section.catDesc')}<br>
+              <span class="realtime-ts">
+                <span class="realtime-dot"></span>
+                ${t('section.updatedAt')}: ${timestamp}
+              </span>
+            </p>
           </div>
+          <ol class="idx-list reveal-group">
+            ${Object.values(CAT_CONFIG).map((cat, i) => {
+              const total = countFor(cat.id);
+              const avail = availFor(cat.id);
+              return `
+              <li>
+                <a class="idx-row reveal" href="#${cat.id}" style="--c:${cat.textColor}" onclick="App.navigate('${cat.id}');return false;">
+                  <span class="ir-n">${String(i + 1).padStart(2, '0')}</span>
+                  <span class="ir-ic">${cat.icon}</span>
+                  <span class="ir-t">
+                    <b>${t('cat.' + cat.id + '.name')}</b>
+                    <em>${t('cat.' + cat.id + '.desc')}</em>
+                  </span>
+                  <span class="ir-d"></span>
+                  <span class="ir-s ${avail > 0 ? 'ok' : 'warn'}">
+                    <b>${avail}</b>
+                    ${t('cat.availOf')} ${total} ${t('cat.ready')}
+                  </span>
+                  <span class="ir-arr">→</span>
+                </a>
+              </li>`;
+            }).join('')}
+          </ol>
         </div>
       </section>
 
       <!-- HOW TO -->
       <section class="section section-alt">
-        <div class="section-inner">
-          <div class="section-label reveal">${t('section.howLabel')}</div>
-          <h2 class="section-title reveal">${t('section.howTitle')}</h2>
-          <div class="steps-grid reveal-group">
+        <div class="wrap">
+          <div class="sec-head">
+            <div>
+              <span class="sh-tag">${t('section.howLabel')}</span>
+              <h2 class="sh-h">${t('section.howTitle')}</h2>
+            </div>
+            <p class="sh-r"></p>
+          </div>
+          <div class="how-grid reveal-group">
             ${[
-              { n:'1', icon:'🔑', title: t('step1.title'), desc: t('step1.desc') },
-              { n:'2', icon:'🔍', title: t('step2.title'), desc: t('step2.desc') },
-              { n:'3', icon:'📋', title: t('step3.title'), desc: t('step3.desc') },
-              { n:'4', icon:'✅', title: t('step4.title'), desc: t('step4.desc') },
+              { n:'01', title: t('step1.title'), desc: t('step1.desc'), tag: '@kmitl.ac.th' },
+              { n:'02', title: t('step2.title'), desc: t('step2.desc'), tag: 'Real-time'    },
+              { n:'03', title: t('step3.title'), desc: t('step3.desc'), tag: 'Form'         },
+              { n:'04', title: t('step4.title'), desc: t('step4.desc'), tag: 'Email'        },
             ].map(s => `
-              <div class="step-card reveal">
-                <div class="step-num">${s.n}</div>
-                <div class="step-icon">${s.icon}</div>
-                <div class="step-title">${s.title}</div>
-                <div class="step-desc">${s.desc}</div>
+              <div class="how-c reveal">
+                <div class="hc-n">${s.n}</div>
+                <h3>${s.title}</h3>
+                <p>${s.desc}</p>
+                <span class="hc-tag">${s.tag}</span>
               </div>`).join('')}
+          </div>
+          <div class="how-note">
+            <span class="hn-t">⚠ NOTE</span>
+            <p>${t('notice')}</p>
           </div>
         </div>
       </section>
