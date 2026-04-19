@@ -257,11 +257,13 @@ window.App = {
       if (mobileNotifBtnOut) mobileNotifBtnOut.style.display = 'none';
 
       el.innerHTML = `${cartBtnHtml}
-        <button class="kcib-signin-btn" onclick="App._doSignIn()" title="Sign in with Google">
-          ${svgGoogle}
-          <span>Sign in with Google</span>
-        </button>
-        <div id="g_id_signin_button" style="display:none;"></div>`;
+        <div class="kcib-signin-wrap" title="Sign in with Google">
+          <div class="kcib-signin-face" aria-hidden="true">
+            ${svgGoogle}
+            <span>Sign in with Google</span>
+          </div>
+          <div id="g_id_signin_button" class="kcib-gsi-over"></div>
+        </div>`;
       this._renderGSI();
       // Mobile: show sign-in slot in the drawer
       const mobileSlot = document.getElementById('mobile-signin-slot');
@@ -390,47 +392,32 @@ window.App = {
   },
 
   _renderGSI() {
-    const tryInit = () => {
+    const el = document.getElementById('g_id_signin_button');
+    if (!el) return;
+    const tryRender = () => {
       if (window.google?.accounts?.id) {
         google.accounts.id.initialize({
           client_id: window.GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID,
           callback:  handleCredentialResponse,
-          auto_prompt: false,
-          hd: 'kmitl.ac.th'
+          auto_prompt: false
+        });
+        google.accounts.id.renderButton(el, {
+          theme: 'outline', size: 'large', shape: 'rectangular', text: 'signin_with', width: 220
         });
         clearInterval(timer);
       }
     };
-    const timer = setInterval(tryInit, 60);
-    tryInit();
+    const timer = setInterval(tryRender, 60);
+    tryRender();
   },
 
   _renderGSIMobile() {
-    /* no-op: mobile now uses the same kcib-signin-btn */
+    /* no-op: mobile uses kcib-signin-btn which triggers prompt() */
   },
 
   _doSignIn() {
     if (window.google?.accounts?.id) {
-      google.accounts.id.prompt((n) => {
-        /* If One Tap is suppressed, render the fallback button temporarily */
-        if (n.isNotDisplayed() || n.isSkippedMoment()) {
-          const fb = document.getElementById('g_id_signin_button');
-          if (!fb) return;
-          google.accounts.id.renderButton(fb, {
-            theme: 'outline', size: 'large', shape: 'pill', text: 'signin_with'
-          });
-          fb.style.display = '';
-          fb.style.position = 'fixed';
-          fb.style.bottom = '24px';
-          fb.style.right = '24px';
-          fb.style.zIndex = '99999';
-          fb.style.background = '#fff';
-          fb.style.padding = '10px';
-          fb.style.borderRadius = '12px';
-          fb.style.boxShadow = '0 8px 32px rgba(0,0,0,.2)';
-          setTimeout(() => { fb.style.display = 'none'; }, 8000);
-        }
-      });
+      google.accounts.id.prompt();
     } else {
       setTimeout(() => this._doSignIn(), 200);
     }
