@@ -231,99 +231,84 @@ window.App = {
   },
 
   _renderNavRight() {
-    const el   = document.getElementById('nav-right');
+    const el = document.getElementById('nav-right');
     if (!el) return;
     const u    = this.state.user;
     const cart = this.state.cart;
 
-    // Cart icon in static nav (managed separately)
-    const cartBtn = document.getElementById('nav-cart-btn');
-    if (cartBtn) {
-      if (cart.length > 0) {
-        cartBtn.style.display = 'grid';
-        const countEl = document.getElementById('nav-cart-count');
-        if (countEl) countEl.textContent = cart.length;
-      } else {
-        cartBtn.style.display = 'none';
-      }
-    }
-
-    // Bell icon (static nav) – show only when logged in
-    const bellBtn = document.getElementById('notif-btn');
-    if (bellBtn) bellBtn.style.display = u ? 'grid' : 'none';
+    const cartBtnHtml = cart.length > 0
+      ? `<button class="cart-btn" onclick="App._openCart()" title="${t('cart.title')}">
+           📋 ${t('cart.title')}
+           <span class="cart-count">${cart.length}</span>
+         </button>`
+      : '';
 
     if (!u) {
-      el.innerHTML = `
-        <button class="btn-sign" onclick="App._triggerSignIn()">
-          <svg viewBox="0 0 24 24" width="15" height="15"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.24 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.17v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.11A6.6 6.6 0 0 1 5.5 12c0-.73.13-1.44.34-2.11V7.05H2.17A11 11 0 0 0 1 12c0 1.77.42 3.45 1.17 4.95l3.67-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.2 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.17 7.05l3.67 2.84C6.71 7.31 9.14 5.38 12 5.38z"/></svg>
-          <span>${t('nav.login') || 'เข้าสู่ระบบ'}</span>
-        </button>
-        <div id="g_id_signin_button" style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden;"></div>`;
-      this._renderGSI();
+      // Hide mobile notif bell when logged out
+      const mobileNotifBtnOut = document.getElementById('mobile-notif-btn');
+      if (mobileNotifBtnOut) mobileNotifBtnOut.style.display = 'none';
 
-      // Mobile drawer: sign-in slot
+      el.innerHTML = `${cartBtnHtml}<div class="nav-signin-btn"><div id="g_id_signin_button"></div></div>`;
+      this._renderGSI();
+      // Mobile: show sign-in slot in the drawer
       const mobileSlot = document.getElementById('mobile-signin-slot');
       if (mobileSlot) {
         mobileSlot.innerHTML = `<div id="g_id_signin_button_mobile"></div>`;
         this._renderGSIMobile();
       }
     } else {
-      const initials = (u.givenName || u.name || 'U').charAt(0).toUpperCase();
-      const avatarInner = u.picture
-        ? `<img src="${u.picture}" alt="${u.givenName}" referrerpolicy="no-referrer">`
-        : initials;
-      const isStaff = this._isStaff();
+      // Mobile: show notif bell next to hamburger
+      const mobileNotifBtn = document.getElementById('mobile-notif-btn');
+      if (mobileNotifBtn) mobileNotifBtn.style.display = 'flex';
 
-      el.innerHTML = `
-        <div class="av-wrap" id="user-menu-btn">
-          <button class="avatar" onclick="App._toggleAvatarMenu(event)" aria-expanded="false">${avatarInner}</button>
-          <div class="av-menu" id="av-menu">
-            <div class="am-head">
-              <div class="am-av">${u.picture ? `<img src="${u.picture}" alt="" referrerpolicy="no-referrer">` : initials}</div>
-              <div>
-                <div class="am-n">${u.name || u.givenName}</div>
-                <div class="am-e">${u.email}</div>
-                <div class="am-r">${t('role.' + u.role)}</div>
-              </div>
-            </div>
-            <button class="am-i" onclick="closeAvatarMenu();App.navigate('my-bookings');"><span class="mono">→</span> ${t('nav.myBookings')}</button>
-            ${isStaff ? `
-            <button class="am-i" onclick="closeAvatarMenu();App.navigate('dashboard');"><span class="mono">→</span> ${t('nav.dashboard')}</button>
-            <a class="am-i" href="${window.GSHEET_URL||GSHEET_URL}" target="_blank" rel="noopener"><span class="mono">↗</span> Google Sheet</a>` : ''}
-            <button class="am-i am-x" onclick="closeAvatarMenu();App.logout();"><span class="mono">↩</span> ${t('logout')}</button>
-          </div>
-        </div>`;
-
-      // Mobile drawer: user card
+      // Mobile: show user card in the drawer
       const mobileSlot = document.getElementById('mobile-signin-slot');
       if (mobileSlot) {
+        const av = u.picture
+          ? `<img class="user-avatar-img" src="${u.picture}" alt="" referrerpolicy="no-referrer" style="width:36px;height:36px;">`
+          : `<div class="user-avatar-init" style="width:36px;height:36px;font-size:15px;">${(u.givenName||u.name||'U').charAt(0).toUpperCase()}</div>`;
         mobileSlot.innerHTML = `
           <div class="mobile-user-card">
-            ${u.picture ? `<img src="${u.picture}" alt="" referrerpolicy="no-referrer" style="width:36px;height:36px;border-radius:50%;border:2px solid var(--accent);">` : `<div style="width:36px;height:36px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700;">${initials}</div>`}
+            ${av}
             <div style="flex:1;min-width:0;">
-              <div style="font-size:14px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.givenName||u.name.split(' ')[0]}</div>
+              <div style="font-size:14px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.givenName||u.name.split(' ')[0]}</div>
               <div style="font-size:11px;color:var(--accent);font-weight:600;">${t('role.' + u.role)}</div>
             </div>
             <button onclick="navClose();App.logout();" class="mobile-logout-btn">${t('logout')}</button>
           </div>`;
       }
+
+      const avatarHtml = u.picture
+        ? `<img class="user-avatar-img" src="${u.picture}" alt="${u.givenName}" referrerpolicy="no-referrer">`
+        : `<div class="user-avatar-init">${(u.givenName || u.name || 'U').charAt(0).toUpperCase()}</div>`;
+
+      const notifCount = this._notifCount || 0;
+      el.innerHTML = `
+        ${cartBtnHtml}
+        <button class="notif-btn" id="notif-btn" onclick="App._toggleNotifDropdown(event)" title="${t('notif.btnTitle')}">
+          🔔
+          <span class="notif-badge" id="notif-badge" style="display:${notifCount > 0 ? 'flex' : 'none'};">${notifCount}</span>
+        </button>
+        <div class="user-menu" id="user-menu-btn">
+          ${avatarHtml}
+          <div>
+            <div class="user-name">${u.givenName || u.name.split(' ')[0]}</div>
+            <div class="user-role">${t('role.' + u.role)}</div>
+          </div>
+          <div class="user-caret">▾</div>
+        </div>`;
+
+      document.getElementById('user-menu-btn').addEventListener('click', e => {
+        e.stopPropagation();
+        this._toggleUserDropdown();
+      });
     }
     this._updateAuthLinks();
-  },
-
-  _triggerSignIn() {
-    const prompt = () => { if (window.google?.accounts?.id) google.accounts.id.prompt(); };
-    const btn = document.querySelector('#g_id_signin_button [role=button], #g_id_signin_button > div');
-    if (btn) { try { btn.click(); } catch(_) { prompt(); } } else { prompt(); }
-  },
-
-  _toggleAvatarMenu(e) {
-    e.stopPropagation();
-    const menu = document.getElementById('av-menu');
-    if (!menu) return;
-    const open = menu.classList.toggle('open');
-    if (open) {
-      setTimeout(() => document.addEventListener('click', closeAvatarMenu, { once: true }), 0);
+    // Mobile cart link visibility
+    const mobileCartLink = document.getElementById('mobile-cart-link');
+    if (mobileCartLink) {
+      mobileCartLink.style.display = this.state.cart.length > 0 ? '' : 'none';
+      mobileCartLink.textContent = `📋 ${t('cart.title')} (${this.state.cart.length})`;
     }
   },
 
@@ -463,21 +448,11 @@ window.App = {
     const inv  = this.state.inventory;
     const u    = this.state.user;
 
-    const countFor  = cat => inv.filter(i => i.category === cat).length;
-    const availFor  = cat => inv.filter(i => i.category === cat && i.available).length;
-    const totalAvail = inv.filter(i => i.available).length;
-
-    const timestamp = new Date().toLocaleString(window.LANG === 'en' ? 'en-GB' : 'th-TH', {
-      hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok'
-    }) + (window.LANG === 'en' ? '' : ' น.');
-
-    const tickerSrc  = inv.length > 0
-      ? inv.slice(0, 14).map(i => i.name)
-      : Object.values(CAT_CONFIG).map(c => t('cat.' + c.id + '.name'));
-    const tickerHtml = tickerSrc.map(n => `<span>${n}</span> <em>·</em>`).join(' ');
+    const countFor = cat => inv.filter(i => i.category === cat).length;
+    const availFor = cat => inv.filter(i => i.category === cat && i.available).length;
 
     el.innerHTML = `
-      <!-- HERO (centered dark) -->
+      <!-- HERO -->
       <section class="hero" id="hero-section">
         <div class="hero-spotlight" id="hero-spotlight"></div>
         <canvas id="hero-canvas"></canvas>
@@ -497,101 +472,79 @@ window.App = {
         <div class="hero-scroll">↓</div>
       </section>
 
-      <!-- TICKER -->
-      <div class="hero-ticker">
-        <div class="ht-track">${tickerHtml} ${tickerHtml}</div>
-      </div>
-
       <!-- NOTICE -->
       <div class="notice-bar">${t('notice')}</div>
 
-      <!-- STATS (dark band) -->
-      <section class="stats">
-        <div class="wrap">
-          <div class="st-head">REAL-TIME DATA · KMITL ChE · ${t('section.updatedAt')}: ${timestamp}</div>
-          <div class="st-grid">
+      <!-- STATS -->
+      <section class="section">
+        <div class="section-inner">
+          <div class="stats-row reveal-group">
             ${[
-              { num: countFor('instrument'), label: t('stat.instrument'), sub: 'INSTRUMENTS' },
-              { num: countFor('glassware'),  label: t('stat.glassware'),  sub: 'GLASSWARE'   },
-              { num: countFor('scientific'), label: t('stat.scientific'), sub: 'SCIENTIFIC'  },
-              { num: totalAvail,             label: t('stat.available'),  sub: 'AVAILABLE'   },
+              { num: countFor('instrument'), label: t('stat.instrument') },
+              { num: countFor('glassware'),  label: t('stat.glassware') },
+              { num: countFor('scientific'), label: t('stat.scientific') },
+              { num: inv.filter(i => i.available).length, label: t('stat.available') },
             ].map(s => `
-              <div class="st">
-                <span class="st-n" data-target="${s.num}">0</span>
-                <span class="st-l">${s.label}<em>${s.sub}</em></span>
+              <div class="stat-card reveal">
+                <div class="stat-num" data-target="${s.num}">0</div>
+                <div class="stat-label">${s.label}</div>
               </div>`).join('')}
           </div>
-        </div>
-      </section>
 
-      <!-- CATEGORY INDEX -->
-      <section class="section">
-        <div class="wrap">
-          <div class="sec-head">
-            <div>
-              <span class="sh-tag">${t('section.catLabel')}</span>
-              <h2 class="sh-h">${t('section.catTitle')}</h2>
-            </div>
-            <p class="sh-r">
-              <span class="realtime-ts">
-                <span class="realtime-dot"></span>
-                ${t('section.updatedAt')}: ${timestamp}
-              </span>
-            </p>
-          </div>
-          <ol class="idx-list reveal-group">
-            ${Object.values(CAT_CONFIG).map((cat, i) => {
-              const total = countFor(cat.id);
-              const avail = availFor(cat.id);
+          <div class="section-label reveal">${t('section.catLabel')}</div>
+          <h2 class="section-title reveal">${t('section.catTitle')}</h2>
+          <p class="section-desc reveal">
+            ${t('section.catDesc')}<br>
+            <span class="realtime-ts">
+              <span class="realtime-dot"></span>
+              ${t('section.updatedAt')}: ${new Date().toLocaleString(window.LANG === 'en' ? 'en-GB' : 'th-TH', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok' })}${window.LANG === 'en' ? '' : ' น.'}
+            </span>
+          </p>
+
+          <div class="cat-grid reveal-group">
+            ${Object.values(CAT_CONFIG).map(cat => {
+              const name = t(`cat.${cat.id}.name`);
+              const desc = t(`cat.${cat.id}.desc`);
               return `
-              <li>
-                <a class="idx-row reveal" href="#${cat.id}" style="--c:${cat.textColor}" onclick="App.navigate('${cat.id}');return false;">
-                  <span class="ir-n">${String(i + 1).padStart(2, '0')}</span>
-                  <span class="ir-ic">${cat.icon}</span>
-                  <span class="ir-t">
-                    <b>${t('cat.' + cat.id + '.name')}</b>
-                    <em>${t('cat.' + cat.id + '.desc')}</em>
-                  </span>
-                  <span class="ir-d"></span>
-                  <span class="ir-s ${avail > 0 ? 'ok' : 'warn'}">
-                    <b>${avail}</b>
-                    ${t('cat.availOf')} ${total} ${t('cat.ready')}
-                  </span>
-                  <span class="ir-arr">→</span>
-                </a>
-              </li>`;
+              <a class="cat-card reveal" href="#${cat.id}" onclick="App.navigate('${cat.id}');return false;">
+                <div class="cat-card-top">
+                  <div class="cat-icon" style="background:${cat.bgColor};color:${cat.textColor};">${cat.icon}</div>
+                  <div class="cat-info">
+                    <div class="cat-name" style="color:${cat.textColor};">${name}</div>
+                    <div class="cat-desc">${desc}</div>
+                  </div>
+                </div>
+                <div class="cat-card-bottom">
+                  <div class="cat-count">
+                    <span class="cat-count-num">${availFor(cat.id)}</span>
+                    <span>${t('cat.availOf')} ${countFor(cat.id)} ${t('cat.ready')}</span>
+                  </div>
+                  <div class="cat-arrow">→</div>
+                </div>
+              </a>`;
             }).join('')}
-          </ol>
+          </div>
         </div>
       </section>
 
       <!-- HOW TO -->
       <section class="section section-alt">
-        <div class="wrap">
-          <div class="sec-head">
-            <div>
-              <span class="sh-tag">${t('section.howLabel')}</span>
-              <h2 class="sh-h">${t('section.howTitle')}</h2>
-            </div>
-            <p class="sh-r"></p>
-          </div>
-          <div class="how-grid reveal-group">
+        <div class="section-inner">
+          <div class="section-label reveal">${t('section.howLabel')}</div>
+          <h2 class="section-title reveal">${t('section.howTitle')}</h2>
+          <div class="steps-grid reveal-group">
             ${[
-              { n:'01', title: t('step1.title'), desc: t('step1.desc'), tag: '@kmitl.ac.th' },
-              { n:'02', title: t('step2.title'), desc: t('step2.desc'), tag: 'Real-time'    },
-              { n:'03', title: t('step3.title'), desc: t('step3.desc'), tag: 'Form'         },
-              { n:'04', title: t('step4.title'), desc: t('step4.desc'), tag: 'Email'        },
+              { n:'1', icon:'🔑', title: t('step1.title'), desc: t('step1.desc') },
+              { n:'2', icon:'🔍', title: t('step2.title'), desc: t('step2.desc') },
+              { n:'3', icon:'📋', title: t('step3.title'), desc: t('step3.desc') },
+              { n:'4', icon:'✅', title: t('step4.title'), desc: t('step4.desc') },
             ].map(s => `
-              <div class="how-c reveal">
-                <div class="hc-n">${s.n}</div>
-                <h3>${s.title}</h3>
-                <p>${s.desc}</p>
-                <span class="hc-tag">${s.tag}</span>
+              <div class="step-card reveal">
+                <div class="step-num">${s.n}</div>
+                <div class="step-icon">${s.icon}</div>
+                <div class="step-title">${s.title}</div>
+                <div class="step-desc">${s.desc}</div>
               </div>`).join('')}
-          </div>
-          <div class="how-note">
-            <span class="hn-t">⚠ NOTE</span>
-            <p>${t('notice')}</p>
           </div>
         </div>
       </section>
@@ -750,24 +703,22 @@ window.App = {
     const cat = CAT_CONFIG[catId];
     if (!cat) { this.navigate('home'); return; }
 
-    const BHEAD = {
-      instrument: { color: '#c2410c', num: '01', en: 'Instruments' },
-      glassware:  { color: '#5b4b82', num: '02', en: 'Glassware'   },
-      scientific: { color: '#3f6b3f', num: '03', en: 'Scientific'  },
-      chemical:   { color: '#8a4a1c', num: '04', en: 'Chemicals'   },
-    };
-    const bh = BHEAD[catId] || { color: 'var(--accent)', num: '--', en: catId };
-
     const el = document.getElementById('page-equipment');
     el.innerHTML = `
-      <div class="bhead" style="--c:${bh.color}">
-        <div class="wrap bh-row">
-          <span class="bh-t">§ ${bh.num} / ${bh.en.toUpperCase()}</span>
-          <h1 class="bh-h">${t(`cat.${catId}.name`)} <span class="bh-em">${bh.en}</span></h1>
-          <p class="bh-d">${t(`cat.${catId}.desc`)}</p>
-          <div class="bh-search">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input type="search" placeholder="${t('equip.search')}" id="equip-search-input" oninput="App._onSearch(this.value)">
+      <div class="equip-header">
+        <div class="equip-header-inner">
+          <button class="equip-back" onclick="App.navigate('home')">${t('equip.back')}</button>
+          <div class="equip-title-row">
+            <div class="equip-cat-icon">${cat.icon}</div>
+            <div>
+              <div class="equip-cat-name">${t(`cat.${catId}.name`)}</div>
+              <div class="equip-cat-desc">${t(`cat.${catId}.desc`)}</div>
+            </div>
+          </div>
+          <div class="equip-search">
+            <svg class="equip-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="search" placeholder="${t('equip.search')}" id="equip-search-input"
+              oninput="App._onSearch(this.value)">
           </div>
         </div>
       </div>
@@ -2139,10 +2090,6 @@ function navClose() {
 function closeDropdown() {
   document.getElementById('user-dropdown')?.remove();
   document.getElementById('user-menu-btn')?.classList.remove('open');
-}
-
-function closeAvatarMenu() {
-  document.getElementById('av-menu')?.classList.remove('open');
 }
 
 /* ====================================================
