@@ -373,6 +373,7 @@ input, select, textarea { font-family: inherit; }
 /* Mobile notif bell — always hidden on desktop regardless of JS */
 @media (min-width: 769px) {
   #mobile-notif-btn { display: none !important; }
+  .nav-lang-in-menu { display: none; }
 }
 
 /* Hamburger */
@@ -1832,7 +1833,15 @@ table.dash-table {
     z-index: 1001;
   }
   .nav-hamburger { display: flex; }
-  .lang-toggle { order: -1; margin-right: 4px; }
+  .lang-toggle { display: none; }
+  .nav-lang-in-menu {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 16px 4px;
+    margin-top: 8px;
+    border-top: 1px solid rgba(255,255,255,.08);
+  }
 
   /* Sign-in / user card inside mobile drawer */
   .mobile-signin-slot {

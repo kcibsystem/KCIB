@@ -8,7 +8,7 @@
 const CAT_CONFIG = {
   instrument: {
     id: 'instrument', name: 'เครื่องมือ / เครื่องวิเคราะห์', nameShort: 'เครื่องมือ',
-    nameEn: 'Instruments', num: '01', headerBg: '#111111',
+    nameEn: 'Instruments', num: '01', headerBg: '#1e3a6e',
     icon: '🔬', bgColor: '#e0f2fe', textColor: '#0369a1',
     desc: 'เครื่องมือวิเคราะห์และทดสอบสำหรับงานวิจัยและการเรียนการสอน',
     bookingType: 'timed', advanceDays: 3, weekdayOnly: true,
