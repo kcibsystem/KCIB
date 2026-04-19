@@ -396,11 +396,14 @@ window.App = {
     if (!el) return;
     const tryRender = () => {
       if (window.google?.accounts?.id) {
-        google.accounts.id.initialize({
-          client_id: window.GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID,
-          callback:  handleCredentialResponse,
-          auto_prompt: false
-        });
+        if (!App._gsiInitialized) {
+          google.accounts.id.initialize({
+            client_id: window.GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID,
+            callback:  handleCredentialResponse,
+            auto_prompt: false
+          });
+          App._gsiInitialized = true;
+        }
         google.accounts.id.renderButton(el, {
           theme: 'outline', size: 'large', shape: 'rectangular', text: 'signin_with', width: 220
         });
@@ -2082,23 +2085,34 @@ function showToast(type, title, msg, duration = 4000) {
 /* ====================================================
    NAVBAR HELPERS (global for onclick)
    ==================================================== */
+function _navOutsideClick(e) {
+  const links = document.getElementById('nav-links');
+  const ham   = document.getElementById('nav-hamburger');
+  if (links?.contains(e.target) || ham?.contains(e.target)) return;
+  navClose();
+}
+
 function navToggle() {
   const links = document.getElementById('nav-links');
   const ham   = document.getElementById('nav-hamburger');
   const over  = document.getElementById('nav-overlay');
   if (!links) return;
   const open = links.classList.toggle('open');
-  if (ham)  ham.classList.toggle('open', open);
-  if (over) over.classList.toggle('active', open);
+  ham?.classList.toggle('open', open);
+  over?.classList.toggle('active', open);
+  if (open) {
+    // delay so the toggle-click itself doesn't immediately close
+    setTimeout(() => document.addEventListener('click', _navOutsideClick), 10);
+  } else {
+    document.removeEventListener('click', _navOutsideClick);
+  }
 }
 
 function navClose() {
-  const links = document.getElementById('nav-links');
-  const ham   = document.getElementById('nav-hamburger');
-  const over  = document.getElementById('nav-overlay');
-  if (links) links.classList.remove('open');
-  if (ham)   ham.classList.remove('open');
-  if (over)  over.classList.remove('active');
+  document.getElementById('nav-links')?.classList.remove('open');
+  document.getElementById('nav-hamburger')?.classList.remove('open');
+  document.getElementById('nav-overlay')?.classList.remove('active');
+  document.removeEventListener('click', _navOutsideClick);
 }
 
 function closeDropdown() {
