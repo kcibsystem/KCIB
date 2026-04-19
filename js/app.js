@@ -461,25 +461,77 @@ window.App = {
     const countFor = cat => inv.filter(i => i.category === cat).length;
     const availFor = cat => inv.filter(i => i.category === cat && i.available).length;
 
+    const totalItems = inv.length;
+    const availItems = inv.filter(i => i.available).length;
+    const actionHtml = u
+      ? `<div class="hero-welcome">
+           ${u.picture ? `<img src="${u.picture}" alt="" referrerpolicy="no-referrer">` : ''}
+           ${t('hero.welcome')}, ${u.givenName || u.name.split(' ')[0]}
+         </div>`
+      : `<a href="#instrument" class="hero-cta" onclick="App.navigate('instrument');return false;">
+           ${t('hero.cta')} <span>→</span>
+         </a>`;
+
     el.innerHTML = `
       <!-- HERO -->
       <section class="hero" id="hero-section">
-        <div class="hero-spotlight" id="hero-spotlight"></div>
-        <canvas id="hero-canvas"></canvas>
-        <img src="logo.png" alt="KCIB" class="hero-logo">
-        <div class="hero-eyebrow">${t('hero.eyebrow')}</div>
-        <h1 class="hero-title">${t('hero.title1')}<br><span>${t('hero.title2')}</span></h1>
-        <p class="hero-sub">${t('hero.sub')}</p>
-        ${u
-          ? `<div class="hero-welcome">
-               ${u.picture ? `<img src="${u.picture}" alt="" referrerpolicy="no-referrer">` : ''}
-               ${t('hero.welcome')}, ${u.givenName || u.name.split(' ')[0]}
-             </div>`
-          : `<a href="#instrument" class="hero-cta" onclick="App.navigate('instrument');return false;">
-               ${t('hero.cta')} <span>→</span>
-             </a>`
-        }
-        <div class="hero-scroll">↓</div>
+        <div class="hero-parallax" id="hero-parallax"></div>
+
+        <div class="hero-content-wrap" id="hero-content-wrap">
+          <div class="hero-inner">
+
+            <!-- Left: headline + sub + cta -->
+            <div class="hero-left">
+              <div class="hero-meta-row">
+                <span>KMITL · ChE</span>
+                <span class="hero-meta-sep">·</span>
+                <span>KCIB v2.0</span>
+                <span class="hero-meta-sep">·</span>
+                <span class="hero-status-live">
+                  <span class="hero-status-dot"></span>OPERATIONAL
+                </span>
+              </div>
+
+              <div class="hero-headline">
+                <div class="hero-hl-line"><span>${t('hero.title1')}</span></div>
+                <div class="hero-hl-line accent"><span>${t('hero.title2')}</span></div>
+                <div class="hero-hl-line dim"><span>KCIB</span></div>
+              </div>
+
+              <div class="hero-rule"></div>
+
+              <div class="hero-bottom-row">
+                <p class="hero-sub">${t('hero.sub')}</p>
+                <div class="hero-actions">${actionHtml}</div>
+              </div>
+            </div>
+
+            <!-- Right: info card -->
+            <div class="hero-info-card">
+              <div class="hic-row">
+                <span>อุปกรณ์</span>
+                <strong>${totalItems || '—'}</strong>
+              </div>
+              <div class="hic-row">
+                <span>พร้อมจอง</span>
+                <strong class="ok">${availItems || '—'}</strong>
+              </div>
+              <div class="hic-row">
+                <span>เปิดบริการ</span>
+                <strong style="font-size:12px;letter-spacing:.02em;">จ–ศ 09–16</strong>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Scroll cue -->
+        <div class="hero-scroll-cue">
+          <span>scroll</span>
+          <div class="hero-scroll-track">
+            <div class="hero-scroll-fill" id="hero-scroll-fill"></div>
+          </div>
+        </div>
       </section>
 
       <!-- NOTICE -->
@@ -560,65 +612,64 @@ window.App = {
       </section>
     `;
 
-    this._initCanvasNetwork();
-    this._initHeroInteractions();
+    this._initHeroAnimations();
     this._initReveal();
     this._initTilt();
     this._animateCounters();
   },
 
-  _initCanvasNetwork() {
-    const canvas = document.getElementById('hero-canvas');
-    if (!canvas) return;
-    const ctx  = canvas.getContext('2d');
-    const hero = document.getElementById('hero-section');
-    const resize = () => { canvas.width = hero.offsetWidth; canvas.height = hero.offsetHeight; };
-    resize();
-    window.addEventListener('resize', resize, { passive: true });
+  _initHeroAnimations() {
+    const hero    = document.getElementById('hero-section');
+    const wrap    = document.getElementById('hero-content-wrap');
+    const fill    = document.getElementById('hero-scroll-fill');
+    const parallax= document.getElementById('hero-parallax');
+    if (!hero) return;
 
-    const N = 45, MAX_DIST = 130;
-    const pts = Array.from({ length: N }, () => ({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      vx: (Math.random() - .5) * .35,
-      vy: (Math.random() - .5) * .35,
-      r: 1.5 + Math.random() * 1.5,
-    }));
-
-    let raf;
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (const p of pts) {
-        p.x = (p.x + p.vx + canvas.width)  % canvas.width;
-        p.y = (p.y + p.vy + canvas.height) % canvas.height;
-      }
-      for (let i = 0; i < N; i++) {
-        for (let j = i + 1; j < N; j++) {
-          const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y;
-          const d  = Math.sqrt(dx * dx + dy * dy);
-          if (d < MAX_DIST) {
-            ctx.strokeStyle = `rgba(255,109,56,${((1 - d / MAX_DIST) * .16).toFixed(3)})`;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(pts[i].x, pts[i].y);
-            ctx.lineTo(pts[j].x, pts[j].y);
-            ctx.stroke();
-          }
-        }
-      }
-      for (const p of pts) {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255,109,56,0.38)';
-        ctx.fill();
-      }
-      raf = requestAnimationFrame(draw);
-    };
-    draw();
-    const mo = new MutationObserver(() => {
-      if (!document.contains(canvas)) { cancelAnimationFrame(raf); mo.disconnect(); }
+    /* ── Scroll-triggered: entry animations ───────────── */
+    // Trigger CSS class after one frame so transitions fire
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => hero.classList.add('h-ready'));
     });
-    mo.observe(document.body, { childList: true, subtree: false });
+
+    /* ── Scroll-linked: parallax + fade + scroll bar ──── */
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const scrollY  = window.scrollY;
+        const heroH    = hero.offsetHeight;
+        const progress = Math.min(scrollY / heroH, 1);
+
+        // Parallax: content moves up at 30% scroll speed
+        if (wrap) {
+          wrap.style.transform  = `translateY(${(scrollY * 0.28).toFixed(1)}px)`;
+          wrap.style.opacity    = Math.max(0, 1 - progress * 1.8).toFixed(3);
+        }
+
+        // Background layer moves at 15% (slower = depth)
+        if (parallax) {
+          parallax.style.transform = `translateY(${(scrollY * 0.14).toFixed(1)}px)`;
+        }
+
+        // Scroll-bar fill in cue indicator
+        if (fill) {
+          fill.style.transform = `scaleY(${progress.toFixed(4)})`;
+        }
+
+        ticking = false;
+      });
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll(); // run once on load
+
+    // Clean up listener when hero is removed from DOM
+    new MutationObserver(() => {
+      if (!document.contains(hero)) {
+        window.removeEventListener('scroll', onScroll);
+      }
+    }).observe(document.body, { childList: true, subtree: false });
   },
 
   _initGlobalInteractions() {
@@ -648,29 +699,6 @@ window.App = {
     document.querySelectorAll('.reveal').forEach(el => this._revealIO.observe(el));
   },
 
-  _initHeroInteractions() {
-    const hero = document.getElementById('hero-section');
-    const cta  = hero?.querySelector('.hero-cta');
-    if (!hero) return;
-
-    hero.addEventListener('mousemove', e => {
-      const r = hero.getBoundingClientRect();
-      hero.style.setProperty('--mx', ((e.clientX - r.left) / r.width  * 100).toFixed(1) + '%');
-      hero.style.setProperty('--my', ((e.clientY - r.top)  / r.height * 100).toFixed(1) + '%');
-      if (!cta) return;
-      const cr   = cta.getBoundingClientRect();
-      const cx   = cr.left + cr.width / 2, cy = cr.top + cr.height / 2;
-      const dist = Math.hypot(e.clientX - cx, e.clientY - cy);
-      if (dist < 140) {
-        const f  = (140 - dist) / 140 * 10;
-        const tx = (e.clientX - cx) / dist * f;
-        const ty = (e.clientY - cy) / dist * f;
-        cta.style.transform = `translate(${tx.toFixed(1)}px,${ty.toFixed(1)}px)`;
-      } else { cta.style.transform = ''; }
-    }, { passive: true });
-
-    hero.addEventListener('mouseleave', () => { if (cta) cta.style.transform = ''; }, { passive: true });
-  },
 
   _initTilt() {
     document.querySelectorAll('.cat-card').forEach(card => {
