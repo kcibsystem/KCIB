@@ -7,14 +7,14 @@
   <meta name="description" content="KCIB: ระบบจองเครื่องมือและอุปกรณ์ ภาควิชาวิศวกรรมเคมี คณะวิศวกรรมศาสตร์ สถาบันเทคโนโลยีพระจอมเกล้าเจ้าคุณทหารลาดกระบัง">
   <link rel="icon" type="image/png" href="logo.png">
 
-  <!-- CSP Fallback -->
+  <!-- CSP -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client https://cdn.jsdelivr.net; frame-src https://accounts.google.com https://www.google.com; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://accounts.google.com https://generativelanguage.googleapis.com;">
 
-  <!-- DNS prefetch for Apps Script -->
+  <!-- DNS prefetch -->
   <link rel="dns-prefetch" href="https://script.google.com">
   <link rel="dns-prefetch" href="https://script.googleusercontent.com">
 
-  <!-- Fonts -->
+  <!-- Supplementary web fonts (Instrument Serif for decorative, JetBrains Mono for labels) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -47,16 +47,6 @@
 </head>
 <body>
 
-<!-- ===================== ANNOUNCE BAR ===================== -->
-<div class="bar" id="announce-bar">
-  <div class="bar-inner">
-    <span class="bar-dot"></span>
-    <span>ระบบเปิดให้ใช้งานปกติ &nbsp;·&nbsp; เปิดบริการ จ–ศ 09:00–16:00 น.</span>
-    <span class="bar-sep">·</span>
-    <span class="mono bar-ver">KCIB v2.0</span>
-  </div>
-</div>
-
 <!-- ===================== LOADING OVERLAY ===================== -->
 <div id="loading-overlay" class="loading-overlay active">
   <div class="loading-inner">
@@ -68,42 +58,72 @@
 </div>
 
 <!-- ===================== NAVBAR ===================== -->
-<nav id="navbar">
-  <div class="nav-inner">
-    <a class="nav-brand" href="#home" onclick="App.navigate('home');return false;">
-      <img src="logo.png" alt="KCIB logo" class="nav-logo-img">
+<header id="navbar">
+  <div class="nav-wrap">
+
+    <!-- Brand -->
+    <a class="brand" href="#home" onclick="App.navigate('home');return false;">
+      <span class="brand-sq">
+        <img src="logo.png" alt="KCIB" class="brand-logo-img">
+      </span>
+      <span class="brand-txt">
+        <span class="brand-name">KCIB</span>
+        <span class="brand-sub mono">Lab Booking / KMITL ChE</span>
+      </span>
     </a>
 
-    <div class="nav-links" id="nav-links">
-      <a class="nav-link" data-page="home"       href="#home"       onclick="App.navigate('home');      navClose();return false;">หน้าแรก</a>
-      <a class="nav-link" data-page="instrument" href="#instrument" onclick="App.navigate('instrument');navClose();return false;">เครื่องมือ</a>
-      <a class="nav-link" data-page="glassware"  href="#glassware"  onclick="App.navigate('glassware'); navClose();return false;">เครื่องแก้ว</a>
-      <a class="nav-link" data-page="scientific" href="#scientific"  onclick="App.navigate('scientific');navClose();return false;">อุปกรณ์วิทย์</a>
-      <a class="nav-link" data-page="chemical"  href="#chemical"   onclick="App.navigate('chemical'); navClose();return false;">สารเคมี</a>
-      <div id="mobile-signin-slot" class="mobile-signin-slot"></div>
-      <a class="nav-link auth-only" data-page="my-bookings" href="#my-bookings" onclick="App.navigate('my-bookings');navClose();return false;" style="display:none;">การจองของฉัน</a>
-      <a class="nav-link staff-only" data-page="dashboard" href="#dashboard" onclick="App.navigate('dashboard');navClose();return false;" style="display:none;">แดชบอร์ด</a>
-      <a class="nav-link" href="#" id="mobile-cart-link" onclick="navClose();App._openCart();return false;" style="display:none;">📋 รายการจอง</a>
+    <!-- Desktop nav links -->
+    <nav class="nav-ls">
+      <a class="nav-link nl" data-page="home"       href="#home"       onclick="App.navigate('home');return false;"><span class="nl-n">01</span><span data-i18n="nav.home">หน้าแรก</span></a>
+      <a class="nav-link nl" data-page="instrument" href="#instrument" onclick="App.navigate('instrument');return false;"><span class="nl-n">02</span><span data-i18n="nav.instrument">เครื่องมือ</span></a>
+      <a class="nav-link nl" data-page="glassware"  href="#glassware"  onclick="App.navigate('glassware');return false;"><span class="nl-n">03</span><span data-i18n="nav.glassware">เครื่องแก้ว</span></a>
+      <a class="nav-link nl" data-page="scientific" href="#scientific"  onclick="App.navigate('scientific');return false;"><span class="nl-n">04</span><span data-i18n="nav.scientific">อุปกรณ์วิทย์</span></a>
+      <a class="nav-link nl" data-page="chemical"   href="#chemical"   onclick="App.navigate('chemical');return false;"><span class="nl-n">05</span><span data-i18n="nav.chemical">สารเคมี</span></a>
+    </nav>
+
+    <!-- Right side -->
+    <div class="nav-r">
+      <!-- Language toggle -->
+      <div class="lang-toggle" id="lang-toggle">
+        <button class="lang-btn active" data-lang="th" onclick="setLang('th')">TH</button>
+        <span class="lang-sep">/</span>
+        <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
+      </div>
+      <!-- Cart icon (managed by JS) -->
+      <button class="ic" id="nav-cart-btn" onclick="App._openCart()" style="display:none;" aria-label="Cart">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h3l2.5 12a2 2 0 0 0 2 1.5h8a2 2 0 0 0 2-1.5L22 7H7"/><circle cx="10" cy="20" r="1.3"/><circle cx="18" cy="20" r="1.3"/></svg>
+        <span class="ic-b" id="nav-cart-count">0</span>
+      </button>
+      <!-- Notification bell (managed by JS – shown when logged in) -->
+      <button class="ic" id="notif-btn" onclick="App._toggleNotifDropdown(event)" style="display:none;" aria-label="การแจ้งเตือน">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.5 21a2 2 0 0 0 3 0"/></svg>
+        <span class="ic-b ic-b-dot" id="notif-badge" style="display:none;"></span>
+      </button>
+      <!-- Auth (sign-in / avatar) — rendered by JS -->
+      <div class="nav-right" id="nav-right"></div>
     </div>
 
-    <div class="nav-right" id="nav-right">
-      <!-- Rendered by JS -->
-    </div>
-
-    <div class="lang-toggle" id="lang-toggle">
-      <button class="lang-btn active" data-lang="th" onclick="setLang('th')">TH</button>
-      <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
-    </div>
-    <button class="notif-btn" id="mobile-notif-btn" onclick="App._toggleNotifDropdown(event)" style="display:none;" aria-label="การแจ้งเตือน">
-      🔔
-      <span class="notif-badge" id="mobile-notif-badge" style="display:none;"></span>
-    </button>
+    <!-- Mobile burger -->
     <button class="nav-hamburger" id="nav-hamburger" onclick="navToggle()" aria-label="เมนู">
-      <span></span><span></span><span></span>
+      <span></span><span></span>
     </button>
   </div>
   <div class="nav-overlay" id="nav-overlay" onclick="navClose()"></div>
-</nav>
+</header>
+
+<!-- Mobile drawer -->
+<div class="nav-links" id="nav-links">
+  <div class="dr-wrap">
+    <a class="nav-link dr-l" data-page="home"       href="#home"       onclick="App.navigate('home');      navClose();return false;"><span class="mono">01</span> <span data-i18n="nav.home">หน้าแรก</span></a>
+    <a class="nav-link dr-l" data-page="instrument" href="#instrument" onclick="App.navigate('instrument');navClose();return false;"><span class="mono">02</span> <span data-i18n="nav.instrument">เครื่องมือ</span></a>
+    <a class="nav-link dr-l" data-page="glassware"  href="#glassware"  onclick="App.navigate('glassware'); navClose();return false;"><span class="mono">03</span> <span data-i18n="nav.glassware">เครื่องแก้ว</span></a>
+    <a class="nav-link dr-l" data-page="scientific" href="#scientific"  onclick="App.navigate('scientific');navClose();return false;"><span class="mono">04</span> <span data-i18n="nav.scientific">อุปกรณ์วิทย์</span></a>
+    <a class="nav-link dr-l" data-page="chemical"   href="#chemical"   onclick="App.navigate('chemical');  navClose();return false;"><span class="mono">05</span> <span data-i18n="nav.chemical">สารเคมี</span></a>
+    <a class="nav-link dr-l auth-only" data-page="my-bookings" href="#my-bookings" onclick="App.navigate('my-bookings');navClose();return false;" style="display:none;"><span class="mono">06</span> <span data-i18n="nav.myBookings">การจองของฉัน</span></a>
+    <a class="nav-link dr-l staff-only" data-page="dashboard"  href="#dashboard"   onclick="App.navigate('dashboard'); navClose();return false;" style="display:none;"><span class="mono">07</span> <span data-i18n="nav.dashboard">แดชบอร์ด</span></a>
+    <div id="mobile-signin-slot" class="dr-auth-slot"></div>
+  </div>
+</div>
 
 <!-- ===================== TOAST ===================== -->
 <div id="toast-container"></div>
@@ -120,63 +140,55 @@
 <div id="page-dashboard"   class="page"></div>
 
 <!-- ===================== FOOTER ===================== -->
-<footer id="site-footer">
-  <div class="footer-top">
-    <div class="footer-top-inner">
-      <div class="footer-col footer-col-brand">
-        <div class="footer-brand">
-          <img src="logo.png" alt="KCIB" class="footer-logo">
-          <div>
-            <div class="footer-brand-name">KCIB</div>
-            <div class="footer-brand-sub">KMITL ChE Inventory &amp; Booking</div>
-          </div>
-        </div>
-        <div class="footer-info">
-          <div data-i18n="footer.dept"></div>
-          <div data-i18n="footer.faculty"></div>
-          <div data-i18n="footer.uni"></div>
-          <div data-i18n="footer.addr1"></div>
-          <div data-i18n="footer.addr2"></div>
-          <div style="margin-top:6px;color:#9ca3af;font-size:13px;" data-i18n="footer.tel"></div>
-        </div>
-        <div class="footer-social">
-          <a class="footer-social-link" href="https://www.facebook.com/chekmitl" target="_blank" rel="noopener">
-            <span>📘</span> Facebook
-          </a>
-          <a class="footer-social-link" href="https://sites.google.com/view/chekmitl-th" target="_blank" rel="noopener">
-            <span>🌐</span> <span data-i18n="footer.website"></span>
-          </a>
-        </div>
+<footer class="foot" id="site-footer">
+  <div class="wrap foot-top">
+    <div class="foot-m">
+      <span class="foot-num mono">KCIB</span>
+      <h2 class="foot-h">ระบบจองอุปกรณ์<br>ห้องปฏิบัติการ</h2>
+    </div>
+    <div class="foot-g">
+      <div class="fg">
+        <div class="fg-h mono">CONTACT</div>
+        <ul>
+          <li><span class="mono">DEPT.</span><span data-i18n="footer.dept">ภาควิชาวิศวกรรมเคมี</span></li>
+          <li><span class="mono">FAC.</span><span data-i18n="footer.faculty">คณะวิศวกรรมศาสตร์</span></li>
+          <li><span class="mono">UNI.</span><span data-i18n="footer.uni">สถาบันเทคโนโลยีพระจอมเกล้าเจ้าคุณทหารลาดกระบัง</span></li>
+          <li><span class="mono">ADDR.</span><span data-i18n="footer.addr1">ถนนฉลองกรุง เขตลาดกระบัง</span></li>
+          <li><span class="mono">TEL.</span><span data-i18n="footer.tel">โทร. 02 329 8360 3</span></li>
+        </ul>
       </div>
-      <div class="footer-col footer-col-map">
-        <div class="footer-map-label" data-i18n="footer.mapLabel"></div>
-        <div class="footer-map-wrap">
+      <div class="fg">
+        <div class="fg-h mono">NAVIGATE</div>
+        <ul class="fg-nav">
+          <li><a href="#home"       onclick="App.navigate('home');      return false;" data-i18n="nav.home">หน้าแรก</a></li>
+          <li><a href="#instrument" onclick="App.navigate('instrument');return false;" data-i18n="nav.instrument">เครื่องมือ</a></li>
+          <li><a href="#glassware"  onclick="App.navigate('glassware'); return false;" data-i18n="nav.glassware">เครื่องแก้ว</a></li>
+          <li><a href="#scientific" onclick="App.navigate('scientific');return false;" data-i18n="nav.scientific">อุปกรณ์วิทย์</a></li>
+          <li><a href="#chemical"   onclick="App.navigate('chemical');  return false;" data-i18n="nav.chemical">สารเคมี</a></li>
+          <li><a href="#my-bookings" onclick="App.navigate('my-bookings');return false;" data-i18n="nav.myBookings">การจองของฉัน</a></li>
+        </ul>
+      </div>
+      <div class="fg">
+        <div class="fg-h mono" data-i18n="footer.mapLabel">MAP</div>
+        <div class="fmap">
           <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3875.8702205638333!2d100.77020337516284!3d13.72630609788302!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x311d67055eca3a43%3A0x7de32ac49a42870b!2sCCA!5e0!3m2!1sen!2sth!4v1776336034263!5m2!1sen!2sth"
-            width="100%" height="220" style="border:0;border-radius:12px;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+            loading="lazy" title="map" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
         </div>
       </div>
     </div>
   </div>
-  <div class="footer-bottom">
-    <div class="footer-bottom-inner">
-      <div style="font-size:12px;color:#6b7280;margin-left:auto;">© 2026 Toy ChE30</div>
-    </div>
+  <div class="wrap foot-bot mono">
+    <span>© 2026 · KCIB SYSTEM / DEPT. OF CHEMICAL ENGINEERING · KMITL</span>
+    <a href="https://www.facebook.com/chekmitl" target="_blank" rel="noopener">Facebook</a>
   </div>
 </footer>
 
 <!-- ===================== CONFIG ===================== -->
 <script>
-  // ⚠️ แก้ค่า SCRIPT_URL เป็น URL จาก Apps Script หลัง deploy
-  // Extensions → Apps Script → Deploy → New deployment → Web app
-  // Execute as: Me | Who has access: Anyone
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwmxTTEC46u4_NbSYt92tIMpHIAxVXCF5BvScGwJIOP2L7Lfm8JaCythlvfpXxOlwk/exec";
-
-  // ⚠️ แก้ GOOGLE_CLIENT_ID ถ้าต้องการสร้าง OAuth Client ใหม่
-  // หรือใช้อันเดิมจาก Bookit แล้ว add Netlify URL เป็น Authorized origin
   const GOOGLE_CLIENT_ID = "334956664737-s7e0dirg9bfni63lr19qaogoc6cqmhum.apps.googleusercontent.com";
-
-  const SITE_URL    = window.location.origin + window.location.pathname.replace(/\/$/, "");
-  const GSHEET_URL  = "https://docs.google.com/spreadsheets/d/18nu0jZcDyyEJGfylpazITc5lK2gdb0u5rrmESQnPVZ4/edit";
+  const SITE_URL   = window.location.origin + window.location.pathname.replace(/\/$/, "");
+  const GSHEET_URL = "https://docs.google.com/spreadsheets/d/18nu0jZcDyyEJGfylpazITc5lK2gdb0u5rrmESQnPVZ4/edit";
 </script>
 
 <script src="js/data.js"></script>
