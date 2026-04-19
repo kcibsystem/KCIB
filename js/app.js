@@ -8,6 +8,7 @@
 const CAT_CONFIG = {
   instrument: {
     id: 'instrument', name: 'เครื่องมือ / เครื่องวิเคราะห์', nameShort: 'เครื่องมือ',
+    nameEn: 'Instruments', num: '01', headerBg: '#1e3a6e',
     icon: '🔬', bgColor: '#e0f2fe', textColor: '#0369a1',
     desc: 'เครื่องมือวิเคราะห์และทดสอบสำหรับงานวิจัยและการเรียนการสอน',
     bookingType: 'timed', advanceDays: 3, weekdayOnly: true,
@@ -15,18 +16,21 @@ const CAT_CONFIG = {
   },
   glassware: {
     id: 'glassware', name: 'เครื่องแก้ว', nameShort: 'เครื่องแก้ว',
+    nameEn: 'Glassware', num: '02', headerBg: '#4a1d7a',
     icon: '🧪', bgColor: '#f3e8ff', textColor: '#7c3aed',
     desc: 'อุปกรณ์เครื่องแก้วสำหรับการทดลองในห้องปฏิบัติการ',
     bookingType: 'quantity'
   },
   scientific: {
     id: 'scientific', name: 'อุปกรณ์วิทยาศาสตร์', nameShort: 'อุปกรณ์วิทย์',
+    nameEn: 'Scientific', num: '03', headerBg: '#1a4d2e',
     icon: '⚗️', bgColor: '#dcfce7', textColor: '#16a34a',
     desc: 'อุปกรณ์วิทยาศาสตร์ทั่วไป เช่น จุกยาง, แคลมป์, ขาตั้ง',
     bookingType: 'quantity'
   },
   chemical: {
     id: 'chemical', name: 'สารเคมี', nameShort: 'สารเคมี',
+    nameEn: 'Chemicals', num: '04', headerBg: '#7c2d12',
     icon: '🧫', bgColor: '#fff7ed', textColor: '#c2410c',
     desc: 'สารเคมีสำหรับการทดลองในห้องปฏิบัติการ',
     bookingType: 'quantity'
@@ -236,9 +240,13 @@ window.App = {
     const u    = this.state.user;
     const cart = this.state.cart;
 
+    const svgCart = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 3h3l2.5 12a2 2 0 0 0 2 1.5h8a2 2 0 0 0 2-1.5L22 7H7"/><circle cx="10" cy="20.5" r="1.3"/><circle cx="18" cy="20.5" r="1.3"/></svg>`;
+    const svgBell = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.5 21a2 2 0 0 0 3 0"/></svg>`;
+    const svgGoogle = `<svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.24 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.17v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.11A6.6 6.6 0 0 1 5.5 12c0-.73.13-1.44.34-2.11V7.05H2.17A11 11 0 0 0 1 12c0 1.77.42 3.45 1.17 4.95l3.67-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.2 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.17 7.05l3.67 2.84C6.71 7.31 9.14 5.38 12 5.38z"/></svg>`;
+
     const cartBtnHtml = cart.length > 0
       ? `<button class="cart-btn" onclick="App._openCart()" title="${t('cart.title')}">
-           📋 ${t('cart.title')}
+           ${svgCart}
            <span class="cart-count">${cart.length}</span>
          </button>`
       : '';
@@ -248,13 +256,21 @@ window.App = {
       const mobileNotifBtnOut = document.getElementById('mobile-notif-btn');
       if (mobileNotifBtnOut) mobileNotifBtnOut.style.display = 'none';
 
-      el.innerHTML = `${cartBtnHtml}<div class="nav-signin-btn"><div id="g_id_signin_button"></div></div>`;
+      el.innerHTML = `${cartBtnHtml}
+        <button class="kcib-signin-btn" onclick="App._doSignIn()" title="Sign in with Google">
+          ${svgGoogle}
+          <span>Sign in with Google</span>
+        </button>
+        <div id="g_id_signin_button" style="display:none;"></div>`;
       this._renderGSI();
       // Mobile: show sign-in slot in the drawer
       const mobileSlot = document.getElementById('mobile-signin-slot');
       if (mobileSlot) {
-        mobileSlot.innerHTML = `<div id="g_id_signin_button_mobile"></div>`;
-        this._renderGSIMobile();
+        mobileSlot.innerHTML = `
+          <button class="kcib-signin-btn" onclick="App._doSignIn();navClose();" style="width:100%;justify-content:center;margin:4px 0;">
+            ${svgGoogle}
+            <span>Sign in with Google</span>
+          </button>`;
       }
     } else {
       // Mobile: show notif bell next to hamburger
@@ -286,7 +302,7 @@ window.App = {
       el.innerHTML = `
         ${cartBtnHtml}
         <button class="notif-btn" id="notif-btn" onclick="App._toggleNotifDropdown(event)" title="${t('notif.btnTitle')}">
-          🔔
+          ${svgBell}
           <span class="notif-badge" id="notif-badge" style="display:${notifCount > 0 ? 'flex' : 'none'};">${notifCount}</span>
         </button>
         <div class="user-menu" id="user-menu-btn">
@@ -308,7 +324,7 @@ window.App = {
     const mobileCartLink = document.getElementById('mobile-cart-link');
     if (mobileCartLink) {
       mobileCartLink.style.display = this.state.cart.length > 0 ? '' : 'none';
-      mobileCartLink.textContent = `📋 ${t('cart.title')} (${this.state.cart.length})`;
+      mobileCartLink.textContent = `🛒 ${t('cart.title')} (${this.state.cart.length})`;
     }
   },
 
@@ -374,43 +390,50 @@ window.App = {
   },
 
   _renderGSI() {
-    const el = document.getElementById('g_id_signin_button');
-    if (!el) return;
-    const tryRender = () => {
+    const tryInit = () => {
       if (window.google?.accounts?.id) {
         google.accounts.id.initialize({
           client_id: window.GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID,
           callback:  handleCredentialResponse,
-          auto_prompt: false
-        });
-        google.accounts.id.renderButton(el, {
-          theme: 'outline', size: 'large', shape: 'pill', text: 'signin_with'
+          auto_prompt: false,
+          hd: 'kmitl.ac.th'
         });
         clearInterval(timer);
       }
     };
-    const timer = setInterval(tryRender, 60);
-    tryRender();
+    const timer = setInterval(tryInit, 60);
+    tryInit();
   },
 
   _renderGSIMobile() {
-    const el = document.getElementById('g_id_signin_button_mobile');
-    if (!el) return;
-    const tryRender = () => {
-      if (window.google?.accounts?.id) {
-        google.accounts.id.initialize({
-          client_id: window.GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID,
-          callback:  handleCredentialResponse,
-          auto_prompt: false
-        });
-        google.accounts.id.renderButton(el, {
-          theme: 'outline', size: 'large', shape: 'rectangular', text: 'signin_with', width: 240
-        });
-        clearInterval(timer);
-      }
-    };
-    const timer = setInterval(tryRender, 60);
-    tryRender();
+    /* no-op: mobile now uses the same kcib-signin-btn */
+  },
+
+  _doSignIn() {
+    if (window.google?.accounts?.id) {
+      google.accounts.id.prompt((n) => {
+        /* If One Tap is suppressed, render the fallback button temporarily */
+        if (n.isNotDisplayed() || n.isSkippedMoment()) {
+          const fb = document.getElementById('g_id_signin_button');
+          if (!fb) return;
+          google.accounts.id.renderButton(fb, {
+            theme: 'outline', size: 'large', shape: 'pill', text: 'signin_with'
+          });
+          fb.style.display = '';
+          fb.style.position = 'fixed';
+          fb.style.bottom = '24px';
+          fb.style.right = '24px';
+          fb.style.zIndex = '99999';
+          fb.style.background = '#fff';
+          fb.style.padding = '10px';
+          fb.style.borderRadius = '12px';
+          fb.style.boxShadow = '0 8px 32px rgba(0,0,0,.2)';
+          setTimeout(() => { fb.style.display = 'none'; }, 8000);
+        }
+      });
+    } else {
+      setTimeout(() => this._doSignIn(), 200);
+    }
   },
 
   _handleScroll() {
@@ -705,18 +728,21 @@ window.App = {
 
     const el = document.getElementById('page-equipment');
     el.innerHTML = `
-      <div class="equip-header">
-        <div class="equip-header-inner">
+      <div class="bhead-banner" style="--bhead-c:${cat.headerBg}">
+        <div class="bh-inner">
+          <span class="bh-tag">§ ${cat.num} / ${cat.nameEn.toUpperCase()}</span>
+          <h1 class="bh-title">
+            ${t(`cat.${catId}.name`)}
+            <span class="bh-title-en">${cat.nameEn}</span>
+          </h1>
+          <p class="bh-desc">${t(`cat.${catId}.desc`)}</p>
+        </div>
+      </div>
+      <div class="equip-search-sticky">
+        <div class="equip-controls">
           <button class="equip-back" onclick="App.navigate('home')">${t('equip.back')}</button>
-          <div class="equip-title-row">
-            <div class="equip-cat-icon">${cat.icon}</div>
-            <div>
-              <div class="equip-cat-name">${t(`cat.${catId}.name`)}</div>
-              <div class="equip-cat-desc">${t(`cat.${catId}.desc`)}</div>
-            </div>
-          </div>
           <div class="equip-search">
-            <svg class="equip-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             <input type="search" placeholder="${t('equip.search')}" id="equip-search-input"
               oninput="App._onSearch(this.value)">
           </div>
