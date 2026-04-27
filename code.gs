@@ -466,9 +466,17 @@ function rejectBooking(data) {
 
 // ==================== SHEET FORMATTING ====================
 
+const CATEGORY_OPTIONS = [
+  "เครื่องแก้ว",
+  "อุปกรณ์วิทยาศาสตร์",
+  "เครื่องมือ",
+  "เครื่องมือวิเคราะห์",
+  "สารเคมี"
+];
+
 function formatAllSheets() {
-  formatSheet_(SHEETS.BOOKINGS,  { statusCol: "Status" });
-  formatSheet_(SHEETS.INVENTORY, {});
+  formatSheet_(SHEETS.BOOKINGS,  { statusCol: "Status", categoryCol: "Category" });
+  formatSheet_(SHEETS.INVENTORY, { categoryCol: "Category" });
   formatSheet_(SHEETS.HOLIDAYS,  {});
   formatSheet_(SHEETS.STAFF,     {});
   formatSheet_(SHEETS.PROFILES,  {});
@@ -547,6 +555,21 @@ function formatSheet_(sheetName, options) {
     });
 
     sheet.setConditionalFormatRules(rules);
+  }
+
+  // Category dropdown validation
+  if (options.categoryCol && lastRow > 1) {
+    var allHeaders = getHeaders_(sheetName);
+    var cIdx = allHeaders.indexOf(options.categoryCol);
+    if (cIdx !== -1) {
+      var catRange = sheet.getRange(2, cIdx + 1, Math.max(lastRow - 1, 500), 1);
+      var rule = SpreadsheetApp.newDataValidation()
+        .requireValueInList(CATEGORY_OPTIONS, true)
+        .setAllowInvalid(false)
+        .setHelpText("เลือกหมวดหมู่จากรายการ")
+        .build();
+      catRange.setDataValidation(rule);
+    }
   }
 }
 
