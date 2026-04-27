@@ -143,11 +143,16 @@ window.App = {
     const credential = jwtDecode(response.credential);
     if (!credential) { showToast('error', t('toast.credError'), t('toast.credErrorDesc')); return; }
 
-    // Restrict to kmitl.ac.th (or comment out for any domain)
-    // if (credential.hd !== 'kmitl.ac.th') {
-    //   showToast('error', 'ไม่สามารถเข้าสู่ระบบได้', 'ต้องใช้อีเมลสถาบัน @kmitl.ac.th เท่านั้น');
-    //   return;
-    // }
+    const _email = (credential.email || '').toLowerCase().trim();
+    const _isKmitl = credential.hd === 'kmitl.ac.th' || _email.endsWith('@kmitl.ac.th');
+    const _staffCfg = this.state.staffConfig || {};
+    const _isStaff = Object.values(_staffCfg).some(members =>
+      members.some(m => (m.email || '').toLowerCase().trim() === _email)
+    );
+    if (!_isKmitl && !_isStaff) {
+      showToast('error', 'ไม่สามารถเข้าสู่ระบบได้', 'ต้องใช้อีเมลสถาบัน @kmitl.ac.th เท่านั้น');
+      return;
+    }
 
     localStorage.setItem('kcib_token', response.credential);
 
