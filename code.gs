@@ -464,3 +464,99 @@ function rejectBooking(data) {
   return { success: true };
 }
 
+// ==================== SHEET FORMATTING ====================
+
+function formatAllSheets() {
+  formatSheet_(SHEETS.BOOKINGS,  { statusCol: "Status" });
+  formatSheet_(SHEETS.INVENTORY, {});
+  formatSheet_(SHEETS.HOLIDAYS,  {});
+  formatSheet_(SHEETS.STAFF,     {});
+  formatSheet_(SHEETS.PROFILES,  {});
+}
+
+function formatSheet_(sheetName, options) {
+  var sheet = sh_(sheetName);
+  if (!sheet) return;
+
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastCol === 0 || lastRow === 0) return;
+
+  // Freeze header row
+  sheet.setFrozenRows(1);
+
+  // Remove existing bandings
+  sheet.getBandings().forEach(function(b) { b.remove(); });
+
+  // Apply banding (alternating row colors)
+  var fullRange = sheet.getRange(1, 1, lastRow, lastCol);
+  fullRange.applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, true, false)
+    .setHeaderRowColor("#1c4587")
+    .setFirstRowColor("#ffffff")
+    .setSecondRowColor("#e8eaf6");
+
+  // Header: white bold text, taller row
+  var header = sheet.getRange(1, 1, 1, lastCol);
+  header
+    .setFontColor("#ffffff")
+    .setFontWeight("bold")
+    .setFontSize(10)
+    .setHorizontalAlignment("center")
+    .setVerticalAlignment("middle")
+    .setWrap(true);
+  sheet.setRowHeight(1, 40);
+
+  // Borders
+  fullRange.setBorder(
+    true, true, true, true, true, true,
+    "#b0bec5", SpreadsheetApp.BorderStyle.SOLID
+  );
+
+  // Auto-resize columns (capped 60–280 px)
+  for (var c = 1; c <= lastCol; c++) {
+    sheet.autoResizeColumn(c);
+    var w = sheet.getColumnWidth(c);
+    if (w > 280) sheet.setColumnWidth(c, 280);
+    if (w < 60)  sheet.setColumnWidth(c, 60);
+  }
+
+  // Conditional formatting by Status (ALlBooking only)
+  if (options.statusCol && lastRow > 1) {
+    var headers  = getHeaders_(sheetName);
+    var sIdx     = headers.indexOf(options.statusCol);
+    if (sIdx === -1) return;
+    var colLetter = columnLetter_(sIdx + 1);
+    var dataRange = sheet.getRange(2, 1, lastRow - 1, lastCol);
+
+    var conditions = [
+      { value: STATUS.APPROVED,  bg: "#c6efce", fg: "#276221" },
+      { value: STATUS.P1,        bg: "#ffeb9c", fg: "#7d5a00" },
+      { value: STATUS.P2,        bg: "#ffe0b2", fg: "#7f3f00" },
+      { value: STATUS.P3,        bg: "#fff9c4", fg: "#615400" },
+      { value: STATUS.REJECTED,  bg: "#ffc7ce", fg: "#9c0006" },
+      { value: STATUS.CANCELLED, bg: "#ededed", fg: "#636363" }
+    ];
+
+    var rules = conditions.map(function(cond) {
+      return SpreadsheetApp.newConditionalFormatRule()
+        .whenFormulaSatisfied('=$' + colLetter + '2="' + cond.value + '"')
+        .setBackground(cond.bg)
+        .setFontColor(cond.fg)
+        .setRanges([dataRange])
+        .build();
+    });
+
+    sheet.setConditionalFormatRules(rules);
+  }
+}
+
+function columnLetter_(col) {
+  var letter = '';
+  while (col > 0) {
+    var rem = (col - 1) % 26;
+    letter = String.fromCharCode(65 + rem) + letter;
+    col = Math.floor((col - 1) / 26);
+  }
+  return letter;
+}
+
