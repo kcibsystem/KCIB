@@ -48,7 +48,8 @@ window.App = {
     staffConfig: {},       // { ROLE: [{email, name}] }
     bookings:    [],       // cached my-bookings
     cart:        [],       // cart items: { item, id }
-    initLoaded:  false
+    initLoaded:  false,
+    profile:     null      // { studentId, educationLevel }
   },
   _allBookings: [],
   _notifCount: 0,
@@ -169,7 +170,8 @@ window.App = {
     this._updateAuthLinks();
     showToast('success', t('toast.loginSuccess'), `${t('toast.welcome')} ${this.state.user.givenName}`);
 
-    // Load notification count in background
+    // Load profile + notification count in background
+    setTimeout(() => this._loadProfile(), 300);
     setTimeout(() => this._loadNotifData(), 500);
 
     // Navigate to current page (refresh view)
@@ -354,6 +356,9 @@ window.App = {
       <div class="dropdown-items">
         <div class="dropdown-item" onclick="closeDropdown();App.navigate('my-bookings');">
           <span>📋</span> ${t('menu.myBookings')}
+        </div>
+        <div class="dropdown-item" onclick="closeDropdown();App._renderProfileModal(true);">
+          <span>✏️</span> ${t('menu.editProfile')}
         </div>
         ${isStaff ? `
         <div class="dropdown-item" onclick="closeDropdown();App.navigate('dashboard');">
@@ -1101,6 +1106,26 @@ window.App = {
           </div>
           <div class="form-row">
             <div class="form-group">
+              <label class="form-label">${t('profile.studentId')}</label>
+              <input class="form-input" id="cart-student-id" type="text"
+                placeholder="${t('profile.studentIdPh')}"
+                value="${escHtml(this.state.profile?.studentId || '')}">
+            </div>
+            <div class="form-group">
+              <label class="form-label">${t('profile.eduLevel')}</label>
+              <select class="form-select" id="cart-edu-level">
+                <option value="">${t('profile.bachelor')}</option>
+                <option value="ปริญญาตรี" ${(this.state.profile?.educationLevel||'ปริญญาตรี')==='ปริญญาตรี'?'selected':''}>
+                  ${t('profile.bachelor')}</option>
+                <option value="ปริญญาโท" ${this.state.profile?.educationLevel==='ปริญญาโท'?'selected':''}>
+                  ${t('profile.master')}</option>
+                <option value="ปริญญาเอก" ${this.state.profile?.educationLevel==='ปริญญาเอก'?'selected':''}>
+                  ${t('profile.doctoral')}</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
               <label class="form-label">${t('cart.course.label')}</label>
               <select class="form-select" id="cart-course">
                 <option value="ทั่วไป">${t('course.general')}</option>
@@ -1200,10 +1225,12 @@ window.App = {
   async _submitCart() {
     const u = this.state.user;
     if (!u) return;
-    const btn     = document.getElementById('cart-submit-btn');
-    const advisor = document.getElementById('cart-advisor')?.value;
-    const course  = document.getElementById('cart-course')?.value || 'ทั่วไป';
-    const note    = document.getElementById('cart-note')?.value || '';
+    const btn            = document.getElementById('cart-submit-btn');
+    const advisor        = document.getElementById('cart-advisor')?.value;
+    const course         = document.getElementById('cart-course')?.value || 'ทั่วไป';
+    const note           = document.getElementById('cart-note')?.value || '';
+    const studentId      = document.getElementById('cart-student-id')?.value || '';
+    const educationLevel = document.getElementById('cart-edu-level')?.value || 'ปริญญาตรี';
 
     if (!advisor) { showToast('warning', t('toast.selectAdvisor'), ''); return; }
 
@@ -1251,15 +1278,17 @@ window.App = {
           action: 'submitBooking',
           email:  u.email,
           name:   u.name,
-          category:    s.category,
-          itemId:      s.item.id,
-          itemName:    s.item.name,
+          category:       s.category,
+          itemId:         s.item.id,
+          itemName:       s.item.name,
           course,
-          quantity:    s.quantity,
-          start:       s.start,
-          end:         s.end,
-          note:        s.bookingNote,
-          advisorEmail: advisor
+          quantity:       s.quantity,
+          start:          s.start,
+          end:            s.end,
+          note:           s.bookingNote,
+          advisorEmail:   advisor,
+          studentId,
+          educationLevel
         });
         if (result.success) successCount++;
         else errors.push(`${s.item.name}: ${result.error || t('toast.credError')}`);
@@ -1914,6 +1943,67 @@ window.App = {
   },
 
   /* ================================================== MODAL */
+  /* -------------------------------------------------- USER PROFILE */
+  async _loadProfile() {
+    const u = this.state.user;
+    if (!u) return;
+    try {
+      const res = await apiGet('getProfile', { email: u.email });
+      this.state.profile = res;
+      if (!res.studentId) this._renderProfileModal(false);
+    } catch (_) {}
+  },
+
+  _renderProfileModal(isEdit) {
+    const p = this.state.profile || {};
+    const levels = ['ปริญญาตรี', 'ปริญญาโท', 'ปริญญาเอก'];
+    const opts = levels.map(lv =>
+      `<option value="${lv}" ${(p.educationLevel||'ปริญญาตรี')===lv?'selected':''}>${t('profile.'+({
+        'ปริญญาตรี':'bachelor','ปริญญาโท':'master','ปริญญาเอก':'doctoral'}[lv]))}</option>`
+    ).join('');
+    this.openModal(`
+      <div class="modal-card">
+        <div class="modal-head">
+          <h2 class="modal-title">${t('profile.title')}</h2>
+          ${isEdit ? `<button class="modal-close" onclick="App.closeModal()">✕</button>` : ''}
+        </div>
+        <div class="modal-body">
+          ${!isEdit ? `<p style="color:var(--text-muted);margin-bottom:16px;font-size:14px;">${t('profile.completeDesc')}</p>` : ''}
+          <div class="form-group">
+            <label class="form-label">${t('profile.studentId')}</label>
+            <input class="form-input" id="prof-student-id" type="text"
+              placeholder="${t('profile.studentIdPh')}"
+              value="${escHtml(p.studentId||'')}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">${t('profile.eduLevel')}</label>
+            <select class="form-select" id="prof-edu-level">${opts}</select>
+          </div>
+        </div>
+        <div class="modal-foot" style="justify-content:flex-end;gap:10px;">
+          ${!isEdit ? `<button class="btn btn-secondary" onclick="App.closeModal()">${t('profile.skip')}</button>` : ''}
+          <button class="btn btn-primary" onclick="App._saveProfile()">
+            ${t('profile.save')}
+          </button>
+        </div>
+      </div>`);
+  },
+
+  async _saveProfile() {
+    const studentId      = document.getElementById('prof-student-id')?.value.trim() || '';
+    const educationLevel = document.getElementById('prof-edu-level')?.value || 'ปริญญาตรี';
+    const u = this.state.user;
+    if (!u) return;
+    try {
+      await apiPost({ action: 'saveProfile', email: u.email, studentId, educationLevel });
+      this.state.profile = { studentId, educationLevel };
+      this.closeModal();
+      showToast('success', t('profile.title'), t('profile.save'));
+    } catch (_) {
+      showToast('error', t('toast.submitFail'), '');
+    }
+  },
+
   openModal(html) {
     const box = document.getElementById('modal-box');
     if (!box) return;

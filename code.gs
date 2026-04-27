@@ -14,7 +14,8 @@ const SHEETS = {
   BOOKINGS:  "ALlBooking",
   INVENTORY: "Inventory",
   HOLIDAYS:  "Holidays",
-  STAFF:     "StaffConfig"
+  STAFF:     "StaffConfig",
+  PROFILES:  "UserProfiles"
 };
 
 const STATUS = {
@@ -69,6 +70,7 @@ function doGet(e) {
       case "init":          return jsonOut(getInitData());
       case "getMyBookings": return jsonOut(getMyBookings(p.email));
       case "getAllBookings": return jsonOut(getAllBookings());
+      case "getProfile":    return jsonOut(getProfile(p.email));
       default:              return jsonOut({ error: "Invalid function: " + (p.func || "(none)") });
     }
   } catch (err) {
@@ -85,6 +87,7 @@ function doPost(e) {
       case "cancelBooking":  return jsonOut(cancelBooking(data));
       case "approveBooking": return jsonOut(approveBooking(data));
       case "rejectBooking":  return jsonOut(rejectBooking(data));
+      case "saveProfile":    return jsonOut(saveProfile(data));
       default:               return jsonOut({ error: "Invalid action: " + data.action });
     }
   } catch (err) {
@@ -208,19 +211,21 @@ function submitBooking(data) {
   const newRow = [
     now,
     bookingId,
-    data.email    || "",
-    data.name     || "",
-    data.category || "",
-    data.itemName || "",
-    data.itemId   || "",
-    data.course   || "",
-    data.quantity || "",
-    data.start    || "",
-    data.end      || "",
-    data.note     || "",
+    data.email          || "",
+    data.name           || "",
+    data.category       || "",
+    data.itemName       || "",
+    data.itemId         || "",
+    data.course         || "",
+    data.quantity       || "",
+    data.start          || "",
+    data.end            || "",
+    data.note           || "",
     advisorEmail,
     STATUS.P1,
-    advisorName
+    advisorName,
+    data.studentId      || "",
+    data.educationLevel || ""
   ];
 
   sheet.appendRow(newRow);
@@ -312,6 +317,41 @@ function approveBooking(data) {
   }
 
   return { success: false, error: "ไม่สามารถอนุมัติสถานะนี้ได้: " + currentStatus };
+}
+
+// ==================== USER PROFILES ====================
+function getProfile(email) {
+  if (!email) return { studentId: "", educationLevel: "" };
+  const lc = email.toLowerCase().trim();
+  const sheet = sh_(SHEETS.PROFILES);
+  if (!sheet) return { studentId: "", educationLevel: "" };
+  const rows = sheet.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0] || "").toLowerCase().trim() === lc) {
+      return { studentId: String(rows[i][1] || ""), educationLevel: String(rows[i][2] || "") };
+    }
+  }
+  return { studentId: "", educationLevel: "" };
+}
+
+function saveProfile(data) {
+  if (!data.email) return { success: false, error: "email required" };
+  const lc    = data.email.toLowerCase().trim();
+  const sheet = sh_(SHEETS.PROFILES);
+  if (!sheet) return { success: false, error: "Sheet 'UserProfiles' not found" };
+
+  const rows  = sheet.getDataRange().getValues();
+  const now   = new Date();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0] || "").toLowerCase().trim() === lc) {
+      sheet.getRange(i + 1, 2).setValue(data.studentId      || "");
+      sheet.getRange(i + 1, 3).setValue(data.educationLevel || "");
+      sheet.getRange(i + 1, 4).setValue(now);
+      return { success: true };
+    }
+  }
+  sheet.appendRow([lc, data.studentId || "", data.educationLevel || "", now]);
+  return { success: true };
 }
 
 // ==================== LINE NOTIFICATION ====================
