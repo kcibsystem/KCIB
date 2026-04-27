@@ -336,9 +336,12 @@ function getProfile(email) {
 
 function saveProfile(data) {
   if (!data.email) return { success: false, error: "email required" };
-  const lc    = data.email.toLowerCase().trim();
-  const sheet = sh_(SHEETS.PROFILES);
-  if (!sheet) return { success: false, error: "Sheet 'UserProfiles' not found" };
+  const lc = data.email.toLowerCase().trim();
+  var sheet = sh_(SHEETS.PROFILES);
+  if (!sheet) {
+    sheet = ss_().insertSheet(SHEETS.PROFILES);
+    sheet.appendRow(["Email", "StudentID", "EducationLevel", "UpdatedAt"]);
+  }
 
   const rows  = sheet.getDataRange().getValues();
   const now   = new Date();

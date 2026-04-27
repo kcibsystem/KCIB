@@ -125,7 +125,7 @@ const TRANSLATIONS = {
     'profile.skip':         'ข้ามไปก่อน',
     // User menu dropdown
     'menu.myBookings':   'การจองของฉัน',
-    'menu.editProfile':  'แก้ไขข้อมูลนักศึกษา',
+    'menu.editProfile':  'แก้ไขข้อมูล',
     'menu.dashboard':    'แดชบอร์ด',
     'menu.viewSheets':   'ดูข้อมูลการจอง (Sheets)',
     'menu.logout':       'ออกจากระบบ',
