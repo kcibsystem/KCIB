@@ -628,10 +628,21 @@ window.App = {
       raf = requestAnimationFrame(draw);
     };
     draw();
-    const mo = new MutationObserver(() => {
-      if (!document.contains(canvas)) { cancelAnimationFrame(raf); mo.disconnect(); }
-    });
-    mo.observe(document.body, { childList: true, subtree: false });
+
+    const pause  = () => { if (raf) { cancelAnimationFrame(raf); raf = null; } };
+    const resume = () => { if (!raf) raf = requestAnimationFrame(draw); };
+
+    // Pause when tab hidden, resume when visible
+    document.addEventListener('visibilitychange', () => document.hidden ? pause() : resume());
+
+    // Pause when hero scrolled off-screen
+    new IntersectionObserver(([e]) => e.isIntersecting ? resume() : pause(), { threshold: 0 })
+      .observe(hero);
+
+    // Stop entirely when canvas removed from DOM
+    new MutationObserver(() => {
+      if (!document.contains(canvas)) { pause(); }
+    }).observe(document.body, { childList: true, subtree: false });
   },
 
   _initHeroInteractions() {
@@ -1127,14 +1138,16 @@ window.App = {
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">${t('cart.course.label')}</label>
-              <select class="form-select" id="cart-course">
-                <option value="ทั่วไป">${t('course.general')}</option>
-                <option value="TEAM PROJECT 2">TEAM PROJECT 2</option>
-                <option value="ปฏิบัติการวิศวกรรมเคมี">${t('course.labChE')}</option>
-                <option value="การออกแบบกระบวนการเคมี">${t('course.processDesign')}</option>
-                <option value="Senior Project / โครงงานนักศึกษา">${t('course.seniorProject')}</option>
-                <option value="งานวิจัย">${t('course.research')}</option>
+              <select class="form-select" id="cart-course"
+                onchange="document.getElementById('cart-course-other').style.display=this.value==='__other__'?'block':'none'">
+                <option value="โครงงานวิศวกรรมเคมี">${t('course.seniorProject')}</option>
+                <option value="TEAM PROJECT 2">${t('course.tp2')}</option>
+                <option value="วิทยานิพนธ์">${t('course.thesis')}</option>
+                <option value="__other__">${t('course.other')}</option>
               </select>
+              <input class="form-input" id="cart-course-other" type="text"
+                placeholder="${t('course.otherPh')}"
+                style="display:none;margin-top:6px;">
             </div>
             <div class="form-group">
               <label class="form-label">${t('cart.note.label')}</label>
@@ -1227,7 +1240,10 @@ window.App = {
     if (!u) return;
     const btn            = document.getElementById('cart-submit-btn');
     const advisor        = document.getElementById('cart-advisor')?.value;
-    const course         = document.getElementById('cart-course')?.value || 'ทั่วไป';
+    const _courseRaw     = document.getElementById('cart-course')?.value || 'โครงงานวิศวกรรมเคมี';
+    const course         = _courseRaw === '__other__'
+      ? (document.getElementById('cart-course-other')?.value.trim() || t('course.other'))
+      : _courseRaw;
     const note           = document.getElementById('cart-note')?.value || '';
     const studentId      = document.getElementById('cart-student-id')?.value || '';
     const educationLevel = document.getElementById('cart-edu-level')?.value || 'ปริญญาตรี';
@@ -1589,7 +1605,7 @@ window.App = {
         </div>`;
     }).join('');
 
-    const isCancellable = ![STATUS_OK, STATUS_REJ, STATUS_CAN].includes(b.Status || '');
+    const isCancellable = ![STATUS_REJ, STATUS_CAN].includes(b.Status || '');
 
     return `
       <div class="bk-item">

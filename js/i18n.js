@@ -204,11 +204,11 @@ const TRANSLATIONS = {
     'cart.cancelBtn':      'ยกเลิก',
     'cart.confirmBtn':     '✅ ยืนยันการจอง',
     // Course options
-    'course.general':       'ทั่วไป',
-    'course.labChE':        'ปฏิบัติการวิศวกรรมเคมี',
-    'course.processDesign': 'การออกแบบกระบวนการเคมี',
-    'course.seniorProject': 'Senior Project / โครงงานนักศึกษา',
-    'course.research':      'งานวิจัย',
+    'course.seniorProject': 'โครงงานวิศวกรรมเคมี',
+    'course.tp2':           'Team Project 2',
+    'course.thesis':        'วิทยานิพนธ์',
+    'course.other':         'อื่นๆ',
+    'course.otherPh':       'ระบุวิชา / โครงการ',
     // Time slots
     'slot.2h':   '(2 ชม.)',
     'slot.1h':   '(1 ชม.)',
@@ -453,11 +453,11 @@ const TRANSLATIONS = {
     'cart.cancelBtn':      'Cancel',
     'cart.confirmBtn':     '✅ Confirm Booking',
     // Course options
-    'course.general':       'General',
-    'course.labChE':        'Chemical Engineering Lab',
-    'course.processDesign': 'Chemical Process Design',
-    'course.seniorProject': 'Senior Project',
-    'course.research':      'Research',
+    'course.seniorProject': 'Senior Project (ChE)',
+    'course.tp2':           'Team Project 2',
+    'course.thesis':        'Thesis',
+    'course.other':         'Other',
+    'course.otherPh':       'Specify course / project',
     // Time slots
     'slot.2h':   '(2 hrs)',
     'slot.1h':   '(1 hr)',
