@@ -474,8 +474,17 @@ const CATEGORY_OPTIONS = [
   "สารเคมี"
 ];
 
+const THEME = {
+  headerBg:    "#e65100",
+  headerFg:    "#ffffff",
+  row1Bg:      "#ffffff",
+  row2Bg:      "#fff3e0",
+  borderColor: "#ffcc80",
+  font:        "Google Sans"
+};
+
 function formatAllSheets() {
-  formatSheet_(SHEETS.BOOKINGS,  { statusCol: "Status", categoryCol: "Category" });
+  formatSheet_(SHEETS.BOOKINGS,  { statusCol: "Status" });
   formatSheet_(SHEETS.INVENTORY, { categoryCol: "Category" });
   formatSheet_(SHEETS.HOLIDAYS,  {});
   formatSheet_(SHEETS.STAFF,     {});
@@ -499,14 +508,17 @@ function formatSheet_(sheetName, options) {
   // Apply banding (alternating row colors)
   var fullRange = sheet.getRange(1, 1, lastRow, lastCol);
   fullRange.applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, true, false)
-    .setHeaderRowColor("#1c4587")
-    .setFirstRowColor("#ffffff")
-    .setSecondRowColor("#e8eaf6");
+    .setHeaderRowColor(THEME.headerBg)
+    .setFirstRowColor(THEME.row1Bg)
+    .setSecondRowColor(THEME.row2Bg);
 
-  // Header: white bold text, taller row
+  // Font: Google Sans for all cells
+  fullRange.setFontFamily(THEME.font);
+
+  // Header styling
   var header = sheet.getRange(1, 1, 1, lastCol);
   header
-    .setFontColor("#ffffff")
+    .setFontColor(THEME.headerFg)
     .setFontWeight("bold")
     .setFontSize(10)
     .setHorizontalAlignment("center")
@@ -514,10 +526,17 @@ function formatSheet_(sheetName, options) {
     .setWrap(true);
   sheet.setRowHeight(1, 40);
 
+  // Data rows: consistent height + vertical alignment
+  if (lastRow > 1) {
+    var dataRows = sheet.getRange(2, 1, lastRow - 1, lastCol);
+    dataRows.setVerticalAlignment("middle");
+    for (var r = 2; r <= lastRow; r++) sheet.setRowHeight(r, 28);
+  }
+
   // Borders
   fullRange.setBorder(
     true, true, true, true, true, true,
-    "#b0bec5", SpreadsheetApp.BorderStyle.SOLID
+    THEME.borderColor, SpreadsheetApp.BorderStyle.SOLID
   );
 
   // Auto-resize columns (capped 60–280 px)
@@ -557,7 +576,7 @@ function formatSheet_(sheetName, options) {
     sheet.setConditionalFormatRules(rules);
   }
 
-  // Category dropdown validation
+  // Category dropdown validation (Inventory only)
   if (options.categoryCol && lastRow > 1) {
     var allHeaders = getHeaders_(sheetName);
     var cIdx = allHeaders.indexOf(options.categoryCol);
