@@ -469,7 +469,7 @@ window.App = {
       <section class="hero" id="hero-section">
         <div class="hero-spotlight" id="hero-spotlight"></div>
         <canvas id="hero-canvas"></canvas>
-        <img src="logo.png" alt="KCIB" class="hero-logo">
+        <img src="Logo_new.png" alt="KCIB" class="hero-logo">
         <div class="hero-eyebrow">${t('hero.eyebrow')}</div>
         <h1 class="hero-title">${t('hero.title1')}<br><span>${t('hero.title2')}</span></h1>
         <p class="hero-sub">${t('hero.sub')}</p>

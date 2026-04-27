@@ -314,6 +314,84 @@ function approveBooking(data) {
   return { success: false, error: "ไม่สามารถอนุมัติสถานะนี้ได้: " + currentStatus };
 }
 
+// ==================== LINE NOTIFICATION ====================
+
+// Status label map for LINE message
+const STATUS_LABEL = {
+  "รอที่ปรึกษาอนุมัติ": "รออาจารย์ที่ปรึกษาอนุมัติ",
+  "รออนุมัติขั้นที่ 2":  "รอหัวหน้าภาควิชาอนุมัติ",
+  "รออนุมัติขั้นที่ 3":  "รอเจ้าหน้าที่อนุมัติ"
+};
+
+// Order for grouping in message
+const STATUS_ORDER = [
+  STATUS.P1,
+  STATUS.P2,
+  STATUS.P3
+];
+
+function sendDailyLineReport() {
+  const props      = PropertiesService.getScriptProperties();
+  const token      = props.getProperty("LINE_TOKEN");
+  const groupId    = props.getProperty("LINE_GROUP_ID");
+  if (!token || !groupId) {
+    Logger.log("LINE_TOKEN or LINE_GROUP_ID not set in Script Properties");
+    return;
+  }
+
+  const pending = sheetToObjects(SHEETS.BOOKINGS).filter(function(b) {
+    return STATUS_ORDER.indexOf(String(b.Status || "").trim()) !== -1;
+  });
+
+  if (pending.length === 0) return; // ไม่มีรายการค้าง ไม่ส่ง
+
+  // Group by status
+  var groups = {};
+  STATUS_ORDER.forEach(function(s) { groups[s] = []; });
+  pending.forEach(function(b) {
+    var s = String(b.Status || "").trim();
+    if (groups[s]) groups[s].push(b);
+  });
+
+  var today = Utilities.formatDate(new Date(), "Asia/Bangkok", "d MMM");
+  var lines  = ["📋 KCIB — รายการจองรออนุมัติ (" + today + ")\n"];
+
+  STATUS_ORDER.forEach(function(s) {
+    var items = groups[s];
+    if (items.length === 0) return;
+    var label = STATUS_LABEL[s] || s;
+    lines.push(label + " (" + items.length + " รายการ)");
+    items.forEach(function(b) {
+      var qty      = b.Quantity && b.Quantity > 1 ? " ×" + b.Quantity : "";
+      var approver = s === STATUS.P1 ? " (" + (b.CurrentApproverName || b.AdvisorEmail || "") + ")" : "";
+      lines.push("• [" + b.BookingID + "] " + (b.ItemName || "") + qty + " — " + (b.Name || b.Email || "") + approver);
+    });
+    lines.push(""); // blank line between groups
+  });
+
+  lines.push("🔗 " + KCIB_SITE_URL);
+
+  var message = lines.join("\n").trim();
+
+  var payload = JSON.stringify({
+    to: groupId,
+    messages: [{ type: "text", text: message }]
+  });
+
+  UrlFetchApp.fetch("https://api.line.me/v2/bot/message/push", {
+    method: "post",
+    contentType: "application/json",
+    headers: { "Authorization": "Bearer " + token },
+    payload: payload,
+    muteHttpExceptions: true
+  });
+}
+
+// Run this once manually to verify token + group ID are set correctly
+function testLineReport() {
+  sendDailyLineReport();
+}
+
 // ==================== REJECT BOOKING ====================
 function rejectBooking(data) {
   const sheet = sh_(SHEETS.BOOKINGS);
