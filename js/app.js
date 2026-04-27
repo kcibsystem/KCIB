@@ -2015,8 +2015,8 @@ window.App = {
       this.state.profile = { studentId, educationLevel };
       this.closeModal();
       showToast('success', t('profile.title'), t('profile.save'));
-    } catch (_) {
-      showToast('error', t('toast.submitFail'), '');
+    } catch (err) {
+      showToast('error', t('toast.submitFail'), err.message || '');
     }
   },
 
