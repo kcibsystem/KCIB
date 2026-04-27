@@ -211,16 +211,16 @@ function submitBooking(data) {
   const newRow = [
     now,
     bookingId,
-    data.email          || "",
-    data.name           || "",
-    data.category       || "",
-    data.itemName       || "",
-    data.itemId         || "",
-    data.course         || "",
-    data.quantity       || "",
-    data.start          || "",
-    data.end            || "",
-    data.note           || "",
+    data.email                                    || "",
+    data.name                                     || "",
+    data.category                                 || "",
+    data.itemName                                 || "",
+    data.itemId                                   || "",
+    data.course                                   || "",
+    data.quantity                                 || "",
+    data.start ? new Date(data.start) : "",
+    data.end   ? new Date(data.end)   : "",
+    data.note                                     || "",
     advisorEmail,
     STATUS.P1,
     advisorName,
@@ -229,6 +229,7 @@ function submitBooking(data) {
   ];
 
   sheet.appendRow(newRow);
+  applyRowFormat_(sheet, sheet.getLastRow());
 
   return { success: true, bookingId: bookingId };
 }
@@ -350,10 +351,12 @@ function saveProfile(data) {
       sheet.getRange(i + 1, 2).setValue(data.studentId      || "");
       sheet.getRange(i + 1, 3).setValue(data.educationLevel || "");
       sheet.getRange(i + 1, 4).setValue(now);
+      applyRowFormat_(sheet, i + 1);
       return { success: true };
     }
   }
   sheet.appendRow([lc, data.studentId || "", data.educationLevel || "", now]);
+  applyRowFormat_(sheet, sheet.getLastRow());
   return { success: true };
 }
 
@@ -483,6 +486,9 @@ const THEME = {
   font:        "Google Sans"
 };
 
+const DATE_FORMAT = "dd/MM/yyyy HH:mm";
+const DATE_COLS   = ["Timestamp", "Start", "End", "UpdatedAt"];
+
 function formatAllSheets() {
   formatSheet_(SHEETS.BOOKINGS,  { statusCol: "Status" });
   formatSheet_(SHEETS.INVENTORY, { categoryCol: "Category" });
@@ -547,6 +553,17 @@ function formatSheet_(sheetName, options) {
     if (w < 60)  sheet.setColumnWidth(c, 60);
   }
 
+  // Date column formatting
+  if (lastRow > 1) {
+    var allHdrs = getHeaders_(sheetName);
+    DATE_COLS.forEach(function(colName) {
+      var dIdx = allHdrs.indexOf(colName);
+      if (dIdx !== -1) {
+        sheet.getRange(2, dIdx + 1, lastRow - 1, 1).setNumberFormat(DATE_FORMAT);
+      }
+    });
+  }
+
   // Conditional formatting by Status (ALlBooking only)
   if (options.statusCol && lastRow > 1) {
     var headers  = getHeaders_(sheetName);
@@ -600,5 +617,49 @@ function columnLetter_(col) {
     col = Math.floor((col - 1) / 26);
   }
   return letter;
+}
+
+// Apply theme styling + date format to a single data row
+function applyRowFormat_(sheet, rowNo) {
+  var lastCol = sheet.getLastColumn();
+  if (rowNo < 2 || lastCol < 1) return;
+  var range = sheet.getRange(rowNo, 1, 1, lastCol);
+  var bg = (rowNo % 2 === 0) ? THEME.row1Bg : THEME.row2Bg;
+  range
+    .setBackground(bg)
+    .setFontFamily(THEME.font)
+    .setVerticalAlignment("middle")
+    .setBorder(true, true, true, true, true, true,
+      THEME.borderColor, SpreadsheetApp.BorderStyle.SOLID);
+  sheet.setRowHeight(rowNo, 28);
+
+  // Date formats
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
+    .map(function(h) { return String(h).trim(); });
+  DATE_COLS.forEach(function(colName) {
+    var idx = headers.indexOf(colName);
+    if (idx !== -1) sheet.getRange(rowNo, idx + 1).setNumberFormat(DATE_FORMAT);
+  });
+}
+
+// ==================== TRIGGERS ====================
+
+// Run once manually from Apps Script editor to install the onEdit trigger
+function setupTriggers() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === "onEditInstallable") ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger("onEditInstallable")
+    .forSpreadsheet(ss_())
+    .onEdit()
+    .create();
+}
+
+// Fires when a user manually edits any cell in the spreadsheet
+function onEditInstallable(e) {
+  if (!e || !e.range) return;
+  var rowNo = e.range.getRow();
+  if (rowNo < 2) return;
+  applyRowFormat_(e.range.getSheet(), rowNo);
 }
 
