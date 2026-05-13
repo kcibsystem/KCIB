@@ -8,7 +8,7 @@
 // ============================================================
 
 const SHEET_ID      = "18nu0jZcDyyEJGfylpazITc5lK2gdb0u5rrmESQnPVZ4";
-const KCIB_SITE_URL = "https://kcibsystem.github.io/";
+const KCIB_SITE_URL = "https://kcibsystem.github.io/KCIB/";
 
 const SHEETS = {
   BOOKINGS:  "ALlBooking",
@@ -211,16 +211,16 @@ function submitBooking(data) {
   const newRow = [
     now,
     bookingId,
-    data.email                                    || "",
-    data.name                                     || "",
-    data.category                                 || "",
-    data.itemName                                 || "",
-    data.itemId                                   || "",
-    data.course                                   || "",
-    data.quantity                                 || "",
-    data.start ? new Date(data.start) : "",
-    data.end   ? new Date(data.end)   : "",
-    data.note                                     || "",
+    data.email          || "",
+    data.name           || "",
+    data.category       || "",
+    data.itemName       || "",
+    data.itemId         || "",
+    data.course         || "",
+    data.quantity       || "",
+    data.start          || "",
+    data.end            || "",
+    data.note           || "",
     advisorEmail,
     STATUS.P1,
     advisorName,
@@ -229,7 +229,6 @@ function submitBooking(data) {
   ];
 
   sheet.appendRow(newRow);
-  applyRowFormat_(sheet, sheet.getLastRow());
 
   return { success: true, bookingId: bookingId };
 }
@@ -351,12 +350,10 @@ function saveProfile(data) {
       sheet.getRange(i + 1, 2).setValue(data.studentId      || "");
       sheet.getRange(i + 1, 3).setValue(data.educationLevel || "");
       sheet.getRange(i + 1, 4).setValue(now);
-      applyRowFormat_(sheet, i + 1);
       return { success: true };
     }
   }
   sheet.appendRow([lc, data.studentId || "", data.educationLevel || "", now]);
-  applyRowFormat_(sheet, sheet.getLastRow());
   return { success: true };
 }
 
@@ -477,20 +474,8 @@ const CATEGORY_OPTIONS = [
   "สารเคมี"
 ];
 
-const THEME = {
-  headerBg:    "#e65100",
-  headerFg:    "#ffffff",
-  row1Bg:      "#ffffff",
-  row2Bg:      "#fff3e0",
-  borderColor: "#ffcc80",
-  font:        "Google Sans"
-};
-
-const DATE_FORMAT = "dd/MM/yyyy HH:mm";
-const DATE_COLS   = ["Timestamp", "Start", "End", "UpdatedAt"];
-
 function formatAllSheets() {
-  formatSheet_(SHEETS.BOOKINGS,  { statusCol: "Status" });
+  formatSheet_(SHEETS.BOOKINGS,  { statusCol: "Status", categoryCol: "Category" });
   formatSheet_(SHEETS.INVENTORY, { categoryCol: "Category" });
   formatSheet_(SHEETS.HOLIDAYS,  {});
   formatSheet_(SHEETS.STAFF,     {});
@@ -514,17 +499,14 @@ function formatSheet_(sheetName, options) {
   // Apply banding (alternating row colors)
   var fullRange = sheet.getRange(1, 1, lastRow, lastCol);
   fullRange.applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, true, false)
-    .setHeaderRowColor(THEME.headerBg)
-    .setFirstRowColor(THEME.row1Bg)
-    .setSecondRowColor(THEME.row2Bg);
+    .setHeaderRowColor("#1c4587")
+    .setFirstRowColor("#ffffff")
+    .setSecondRowColor("#e8eaf6");
 
-  // Font: Google Sans for all cells
-  fullRange.setFontFamily(THEME.font);
-
-  // Header styling
+  // Header: white bold text, taller row
   var header = sheet.getRange(1, 1, 1, lastCol);
   header
-    .setFontColor(THEME.headerFg)
+    .setFontColor("#ffffff")
     .setFontWeight("bold")
     .setFontSize(10)
     .setHorizontalAlignment("center")
@@ -532,17 +514,10 @@ function formatSheet_(sheetName, options) {
     .setWrap(true);
   sheet.setRowHeight(1, 40);
 
-  // Data rows: consistent height + vertical alignment
-  if (lastRow > 1) {
-    var dataRows = sheet.getRange(2, 1, lastRow - 1, lastCol);
-    dataRows.setVerticalAlignment("middle");
-    for (var r = 2; r <= lastRow; r++) sheet.setRowHeight(r, 28);
-  }
-
   // Borders
   fullRange.setBorder(
     true, true, true, true, true, true,
-    THEME.borderColor, SpreadsheetApp.BorderStyle.SOLID
+    "#b0bec5", SpreadsheetApp.BorderStyle.SOLID
   );
 
   // Auto-resize columns (capped 60–280 px)
@@ -551,17 +526,6 @@ function formatSheet_(sheetName, options) {
     var w = sheet.getColumnWidth(c);
     if (w > 280) sheet.setColumnWidth(c, 280);
     if (w < 60)  sheet.setColumnWidth(c, 60);
-  }
-
-  // Date column formatting
-  if (lastRow > 1) {
-    var allHdrs = getHeaders_(sheetName);
-    DATE_COLS.forEach(function(colName) {
-      var dIdx = allHdrs.indexOf(colName);
-      if (dIdx !== -1) {
-        sheet.getRange(2, dIdx + 1, lastRow - 1, 1).setNumberFormat(DATE_FORMAT);
-      }
-    });
   }
 
   // Conditional formatting by Status (ALlBooking only)
@@ -593,7 +557,7 @@ function formatSheet_(sheetName, options) {
     sheet.setConditionalFormatRules(rules);
   }
 
-  // Category dropdown validation (Inventory only)
+  // Category dropdown validation
   if (options.categoryCol && lastRow > 1) {
     var allHeaders = getHeaders_(sheetName);
     var cIdx = allHeaders.indexOf(options.categoryCol);
@@ -617,49 +581,5 @@ function columnLetter_(col) {
     col = Math.floor((col - 1) / 26);
   }
   return letter;
-}
-
-// Apply theme styling + date format to a single data row
-function applyRowFormat_(sheet, rowNo) {
-  var lastCol = sheet.getLastColumn();
-  if (rowNo < 2 || lastCol < 1) return;
-  var range = sheet.getRange(rowNo, 1, 1, lastCol);
-  var bg = (rowNo % 2 === 0) ? THEME.row1Bg : THEME.row2Bg;
-  range
-    .setBackground(bg)
-    .setFontFamily(THEME.font)
-    .setVerticalAlignment("middle")
-    .setBorder(true, true, true, true, true, true,
-      THEME.borderColor, SpreadsheetApp.BorderStyle.SOLID);
-  sheet.setRowHeight(rowNo, 28);
-
-  // Date formats
-  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
-    .map(function(h) { return String(h).trim(); });
-  DATE_COLS.forEach(function(colName) {
-    var idx = headers.indexOf(colName);
-    if (idx !== -1) sheet.getRange(rowNo, idx + 1).setNumberFormat(DATE_FORMAT);
-  });
-}
-
-// ==================== TRIGGERS ====================
-
-// Run once manually from Apps Script editor to install the onEdit trigger
-function setupTriggers() {
-  ScriptApp.getProjectTriggers().forEach(function(t) {
-    if (t.getHandlerFunction() === "onEditInstallable") ScriptApp.deleteTrigger(t);
-  });
-  ScriptApp.newTrigger("onEditInstallable")
-    .forSpreadsheet(ss_())
-    .onEdit()
-    .create();
-}
-
-// Fires when a user manually edits any cell in the spreadsheet
-function onEditInstallable(e) {
-  if (!e || !e.range) return;
-  var rowNo = e.range.getRow();
-  if (rowNo < 2) return;
-  applyRowFormat_(e.range.getSheet(), rowNo);
 }
 
